@@ -29,3 +29,16 @@ supabase/
   ```
 
   The script attaches the CLI container to the `supabase_default` network by default and mounts the repository root at `/workspace` so it can read the local `supabase/` folder. Override the image or network with `SUPABASE_CLI_IMAGE` or `SUPABASE_NETWORK` if needed.
+
+## Generating `supabase/config.toml`
+
+- A starter example lives at `supabase/config.example.toml`. Update the `ref` and database password to match your environment if you prefer to copy it manually.
+- To generate `supabase/config.toml` from the values in your `.env`, run:
+
+  ```bash
+  cp .env.example .env # or edit your existing .env
+  ./utils/generate-config.sh             # writes supabase/config.toml
+  ./utils/generate-config.sh path/to/.env # alternate env file
+  ```
+
+  The script reads database credentials, Kong port, and schema settings from the env file and produces a ready-to-use Supabase CLI configuration in `supabase/config.toml`.

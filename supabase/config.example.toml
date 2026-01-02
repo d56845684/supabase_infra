@@ -1,0 +1,16 @@
+[project]
+# Update this to match your remote Supabase project ref if needed.
+ref = "local"
+
+[api]
+# The Kong gateway inside the docker compose network.
+url = "http://kong:8000"
+
+[db]
+# Fill in POSTGRES_PASSWORD to match your .env.
+connection = "postgresql://postgres:POSTGRES_PASSWORD@db:5432/postgres"
+shadow_connection = "postgresql://postgres:POSTGRES_PASSWORD@db:5432/postgres"
+
+[migrations]
+# Keep schemas in sync with PGRST_DB_SCHEMAS in .env.
+schema = "public,storage,graphql_public,extensions"
