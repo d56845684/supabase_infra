@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # Next.js 前端應用
+  # ==========================================
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: teaching-platform-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    # networks:
+    #   - teaching-network
+    # depends_on:
+    #   - supabase-db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

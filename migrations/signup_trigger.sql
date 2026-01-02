@@ -6,32 +6,34 @@
 -- 預設所有註冊都是 student，只有 admin 能升級權限
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-DECLARE
-    allowed_role user_role;
+RETURNS TRIGGER 
+SECURITY DEFINER 
+SET search_path = public
+AS $$
 BEGIN
-    -- 🔒 安全檢查：前端註冊只能是 student
-    -- 忽略 metadata 中的 role，強制設為 student
-    allowed_role := 'student';
-    
-    -- 建立 user_profile
     INSERT INTO public.user_profiles (id, role, full_name, email, phone, avatar_url)
     VALUES (
         NEW.id,
-        allowed_role,  -- 強制為 student
-        COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
-        NEW.email,
+        'student'::user_role,
+        COALESCE(
+            NEW.raw_user_meta_data->>'full_name',
+            NEW.raw_user_meta_data->>'name',
+            SPLIT_PART(NEW.email, '@', 1),
+            ''
+        ),
+        COALESCE(NEW.email, ''),
         NEW.raw_user_meta_data->>'phone',
         NEW.raw_user_meta_data->>'avatar_url'
-    );
-    
-    -- 自動建立 students 記錄
+    )
+    ON CONFLICT (id) DO NOTHING;
+
     INSERT INTO public.students (id, student_status)
-    VALUES (NEW.id, 'trial');
-    
+    VALUES (NEW.id, 'trial')
+    ON CONFLICT (id) DO NOTHING;
+
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
 -- 建立觸發器
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -157,3 +159,10 @@ CREATE POLICY "Admin can change any role" ON public.user_profiles
             WHERE id = auth.uid() AND role = 'admin'
         )
     );
+-- user_profiles INSERT 政策
+CREATE POLICY "Service role can insert profiles" ON public.user_profiles
+    FOR INSERT TO service_role WITH CHECK (true);
+
+-- students INSERT 政策  
+CREATE POLICY "Service role can insert students" ON public.students
+    FOR INSERT TO service_role WITH CHECK (true);
