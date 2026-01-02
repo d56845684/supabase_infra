@@ -40,7 +40,10 @@ POSTGRES_DB=${POSTGRES_DB:-postgres}
 POSTGRES_PORT=${POSTGRES_PORT:-5432}
 POSTGRES_HOST=${POSTGRES_HOST:-db}
 
-if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then
+# Avoid set -u aborts when POSTGRES_PASSWORD is missing so we can print
+# a clearer error message for the user.
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD-}
+if [[ -z "${POSTGRES_PASSWORD}" ]]; then
   echo "POSTGRES_PASSWORD is required in ${ENV_FILE}" >&2
   exit 1
 fi
