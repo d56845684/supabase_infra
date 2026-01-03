@@ -3,7 +3,7 @@
     <div class="page-header">
       <h2>{{ $t('nav.bookingOverview') }}</h2>
       <el-select v-model="selectedTeacher" placeholder="Select" size="small">
-        <el-option v-for="teacher in teacherUsers" :key="teacher.id" :label="teacher.fullName" :value="teacher.id" />
+        <el-option v-for="teacher in teacherUsers" :key="teacher.id" :label="teacher.full_name" :value="teacher.id" />
       </el-select>
     </div>
     <div class="chart" ref="chartRef"></div>
@@ -39,11 +39,11 @@ watch(
 
 const bookingRows = computed(() =>
   dataStore.bookingView
-    .filter((b) => b.teacherId === selectedTeacher.value)
+    .filter((b) => b.teacher_id === selectedTeacher.value)
     .map((b) => ({
       ...b,
-      schedule: `${dayjs(b.scheduledStart).format('MM/DD HH:mm')} - ${dayjs(b.scheduledEnd).format('HH:mm')}`,
-      student: b.student?.fullName ?? b.studentId
+      schedule: `${dayjs(b.scheduled_start).format('MM/DD HH:mm')} - ${dayjs(b.scheduled_end).format('HH:mm')}`,
+      student: b.student?.full_name ?? b.student_id
     }))
 );
 
@@ -51,7 +51,7 @@ const renderChart = () => {
   if (!chartRef.value) return;
   const chart = echarts.init(chartRef.value);
   const grouped = bookingRows.value.reduce<Record<string, number>>((acc, cur) => {
-    const day = dayjs(cur.scheduledStart).format('MM/DD');
+    const day = dayjs(cur.scheduled_start).format('MM/DD');
     acc[day] = (acc[day] || 0) + 1;
     return acc;
   }, {});

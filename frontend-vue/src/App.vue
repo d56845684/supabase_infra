@@ -8,7 +8,7 @@
         <div class="logo-area">Teaching Admin</div>
         <div class="header-actions">
           <div v-if="authStore.currentUser" class="user-meta">
-            <div class="user-name">{{ authStore.currentUser.fullName }}</div>
+            <div class="user-name">{{ authStore.currentUser.full_name }}</div>
             <div class="user-role">{{ $t(`auth.roles.${authStore.currentUser.role}`) }}</div>
           </div>
           <el-switch

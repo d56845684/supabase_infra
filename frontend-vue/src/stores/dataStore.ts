@@ -3,7 +3,6 @@ import type {
   Booking,
   Student,
   Teacher,
-  TeacherLeaveRequest,
   TeacherPayroll,
   UserProfile
 } from '@/types/schema';
@@ -15,7 +14,6 @@ interface State {
   students: Student[];
   bookings: Booking[];
   payrolls: TeacherPayroll[];
-  leaveRequests: TeacherLeaveRequest[];
   initialized: boolean;
 }
 
@@ -26,22 +24,21 @@ export const useDataStore = defineStore('data', {
     students: [],
     bookings: [],
     payrolls: [],
-    leaveRequests: [],
     initialized: false
   }),
   getters: {
     teacherProfiles: (state) => state.teachers.map((t) => ({
       ...t,
-      profile: state.users.find((u) => u.id === t.profileId)
+      profile: state.users.find((u) => u.id === t.id)
     })),
     studentProfiles: (state) => state.students.map((s) => ({
       ...s,
-      profile: state.users.find((u) => u.id === s.profileId)
+      profile: state.users.find((u) => u.id === s.id)
     })),
     bookingView: (state) => state.bookings.map((b) => ({
       ...b,
-      student: state.users.find((u) => u.id === b.studentId),
-      teacher: state.users.find((u) => u.id === b.teacherId)
+      student: state.users.find((u) => u.id === b.student_id),
+      teacher: state.users.find((u) => u.id === b.teacher_id)
     }))
   },
   actions: {
@@ -56,8 +53,7 @@ export const useDataStore = defineStore('data', {
         this.fetchTeachers(),
         this.fetchStudents(),
         this.fetchBookings(),
-        this.fetchPayrolls(),
-        this.fetchLeaveRequests()
+        this.fetchPayrolls()
       ]);
     },
     async fetchUsers() {
@@ -81,14 +77,9 @@ export const useDataStore = defineStore('data', {
       this.bookings = (data ?? []) as Booking[];
     },
     async fetchPayrolls() {
-      const { data, error } = await supabase.from('teacher_payrolls').select('*');
+      const { data, error } = await supabase.from('teacher_payroll').select('*');
       if (error) throw error;
       this.payrolls = (data ?? []) as TeacherPayroll[];
-    },
-    async fetchLeaveRequests() {
-      const { data, error } = await supabase.from('teacher_leave_requests').select('*');
-      if (error) throw error;
-      this.leaveRequests = (data ?? []) as TeacherLeaveRequest[];
     },
     async upsertUser(user: UserProfile) {
       const { error, data } = await supabase
@@ -102,22 +93,16 @@ export const useDataStore = defineStore('data', {
       if (idx >= 0) this.users[idx] = next;
       else this.users.push(next);
     },
-    async updateTeacherStatus(id: string, status: Teacher['status']) {
-      const { data, error } = await supabase.from('teachers').update({ status }).eq('id', id).select().single();
-      if (error) throw error;
-      const idx = this.teachers.findIndex((t) => t.id === id);
-      if (idx >= 0 && data) this.teachers[idx] = data as Teacher;
-    },
-    async approveLeave(id: string) {
+    async updateTeacherStatus(id: string, status: Teacher['teacher_status']) {
       const { data, error } = await supabase
-        .from('teacher_leave_requests')
-        .update({ status: 'approved' })
+        .from('teachers')
+        .update({ teacher_status: status })
         .eq('id', id)
         .select()
         .single();
       if (error) throw error;
-      const idx = this.leaveRequests.findIndex((r) => r.id === id);
-      if (idx >= 0 && data) this.leaveRequests[idx] = data as TeacherLeaveRequest;
+      const idx = this.teachers.findIndex((t) => t.id === id);
+      if (idx >= 0 && data) this.teachers[idx] = data as Teacher;
     },
     async addBooking(booking: Booking) {
       const { data, error } = await supabase.from('bookings').insert(booking).select().single();

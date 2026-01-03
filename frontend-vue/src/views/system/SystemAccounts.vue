@@ -5,7 +5,7 @@
       <el-tag type="info">{{ users.length }} users</el-tag>
     </div>
     <el-table :data="users" stripe>
-      <el-table-column prop="fullName" :label="$t('tables.teacher')" />
+      <el-table-column prop="full_name" :label="$t('tables.teacher')" />
       <el-table-column prop="email" :label="$t('tables.email')" />
       <el-table-column prop="role" :label="$t('tables.role')" />
       <el-table-column prop="status" :label="$t('tables.status')">

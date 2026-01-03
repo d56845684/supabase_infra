@@ -29,9 +29,9 @@ const dataStore = useDataStore();
 const rows = computed(() =>
   dataStore.bookingView.map((b) => ({
     ...b,
-    student: b.student?.fullName ?? b.studentId,
-    teacher: b.teacher?.fullName ?? b.teacherId,
-    schedule: `${dayjs(b.scheduledStart).format('MM/DD HH:mm')} - ${dayjs(b.scheduledEnd).format('HH:mm')}`
+    student: b.student?.full_name ?? b.student_id,
+    teacher: b.teacher?.full_name ?? b.teacher_id,
+    schedule: `${dayjs(b.scheduled_start).format('MM/DD HH:mm')} - ${dayjs(b.scheduled_end).format('HH:mm')}`
   }))
 );
 
@@ -46,10 +46,10 @@ const createBooking = async () => {
   try {
     await dataStore.addBooking({
       id: nanoid(),
-      studentId,
-      teacherId,
-      scheduledStart: dayjs().add(2, 'day').hour(11).minute(0).toISOString(),
-      scheduledEnd: dayjs().add(2, 'day').hour(12).minute(0).toISOString(),
+      student_id: studentId,
+      teacher_id: teacherId,
+      scheduled_start: dayjs().add(2, 'day').hour(11).minute(0).toISOString(),
+      scheduled_end: dayjs().add(2, 'day').hour(12).minute(0).toISOString(),
       status: 'scheduled'
     });
     ElMessage.success('已建立新預約');
