@@ -5,9 +5,23 @@
 #   Destroy:            docker compose -f docker-compose.yml -f ./dev/docker-compose.dev.yml down -v --remove-orphans
 #   Reset everything:  ./reset.sh
 
-name: supabase
+# name: supabase
 
 services:
+
+  frontend:
+    container_name: teaching-platform-frontend
+    build:
+      context: ./frontend-vue
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL}
+        VITE_SUPABASE_ANON_KEY: ${ANON_KEY}
+    depends_on:
+      kong:
+        condition: service_started
+    ports:
+      - ${FRONTEND_PORT:-4173}:80
 
   studio:
     container_name: supabase-studio
