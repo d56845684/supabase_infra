@@ -13,6 +13,9 @@ export default {
     studentBookings: 'Booking Management'
   },
   theme: { light: 'Light', dark: 'Dark' },
+  labels: {
+    unknownUser: 'Unknown user'
+  },
   auth: {
     logout: 'Logout',
     loginTitle: 'Welcome back',
@@ -62,5 +65,38 @@ export default {
     updateStatus: 'Update Status',
     filter: 'Filter',
     addBooking: 'Add Booking'
+  },
+  bookingForm: {
+    title: 'Create Booking',
+    student: 'Student',
+    slot: 'Available slot',
+    teacher: 'Teacher',
+    start: 'Start time',
+    end: 'End time',
+    status: 'Status',
+    studentPlaceholder: 'Select a student',
+    slotPlaceholder: 'Choose an available time',
+    teacherPlaceholder: 'Select a teacher',
+    startPlaceholder: 'Choose a start time',
+    endPlaceholder: 'Choose an end time',
+    submit: 'Create',
+    cancel: 'Cancel',
+    success: 'Booking created',
+    failure: 'Failed to create booking',
+    statusLabels: {
+      scheduled: 'Scheduled',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+      no_show: 'No show'
+    },
+    validation: {
+      student: 'Please select a student',
+      slot: 'Please select an available time slot',
+      teacher: 'Please select a teacher',
+      start: 'Please select a start time',
+      end: 'Please select an end time',
+      endAfterStart: 'End time must be after start time',
+      noProfiles: 'Please add at least one student and one available slot before booking'
+    }
   }
 };

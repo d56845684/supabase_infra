@@ -2,7 +2,7 @@
   <div class="page">
     <h2>{{ $t('nav.teacherAccounts') }}</h2>
     <el-table :data="teacherUsers" stripe>
-      <el-table-column prop="fullName" :label="$t('tables.teacher')" />
+      <el-table-column prop="full_name" :label="$t('tables.teacher')" />
       <el-table-column prop="email" :label="$t('tables.email')" />
       <el-table-column :label="$t('tables.status')">
         <template #default>

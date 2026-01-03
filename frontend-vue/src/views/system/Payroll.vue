@@ -4,13 +4,13 @@
     <el-table :data="payrollRows" stripe>
       <el-table-column prop="teacher" :label="$t('tables.teacher')" />
       <el-table-column prop="period" :label="$t('tables.period')" />
-      <el-table-column prop="totalLessons" :label="$t('tables.lessons')" />
-      <el-table-column prop="finalAmount" :label="$t('tables.amount')">
-        <template #default="scope">${{ scope.row.finalAmount.toFixed(2) }}</template>
+      <el-table-column prop="total_lessons" :label="$t('tables.lessons')" />
+      <el-table-column prop="final_amount" :label="$t('tables.amount')">
+        <template #default="scope">${{ scope.row.final_amount.toFixed(2) }}</template>
       </el-table-column>
-      <el-table-column prop="status" :label="$t('tables.status')">
+      <el-table-column prop="payment_status" :label="$t('tables.status')">
         <template #default="scope">
-          <el-tag :type="scope.row.status === 'pending' ? 'warning' : 'success'">{{ scope.row.status }}</el-tag>
+          <el-tag :type="scope.row.payment_status === 'pending' ? 'warning' : 'success'">{{ scope.row.payment_status }}</el-tag>
         </template>
       </el-table-column>
     </el-table>
@@ -21,15 +21,25 @@
 import dayjs from 'dayjs';
 import { computed } from 'vue';
 import { useDataStore } from '@/stores/dataStore';
+import { useI18n } from 'vue-i18n';
 
 const dataStore = useDataStore();
+const { t } = useI18n();
+
+const userLabel = (id: string) => {
+  const user = dataStore.users.find((u) => u.id === id);
+  if (user?.full_name && user?.email) return `${user.full_name} (${user.email})`;
+  if (user?.full_name) return user.full_name;
+  if (user?.email) return user.email;
+  return t('labels.unknownUser');
+};
+
 const payrollRows = computed(() =>
   dataStore.payrolls.map((row) => {
-    const teacher = dataStore.users.find((u) => u.id === row.teacherId);
     return {
       ...row,
-      teacher: teacher?.fullName ?? row.teacherId,
-      period: `${dayjs(row.periodStart).format('MM/DD')} - ${dayjs(row.periodEnd).format('MM/DD')}`
+      teacher: userLabel(row.teacher_id),
+      period: `${dayjs(row.period_start).format('MM/DD')} - ${dayjs(row.period_end).format('MM/DD')}`
     };
   })
 );
