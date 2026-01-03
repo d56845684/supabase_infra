@@ -60,6 +60,7 @@ export interface Booking {
   id: string;
   student_id: string;
   teacher_id: string;
+  slot_id?: string;
   scheduled_start: string;
   scheduled_end: string;
   status: 'scheduled' | 'completed' | 'cancelled' | 'no_show';
@@ -78,6 +79,27 @@ export interface Booking {
   lesson_notes?: string;
   student_feedback?: string;
   teacher_feedback?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface BookingManagement extends Booking {
+  student_name?: string;
+  student_email?: string;
+  teacher_name?: string;
+  teacher_email?: string;
+  slot_start?: string;
+  slot_end?: string;
+  slot_is_open?: boolean;
+}
+
+export interface TeacherAvailableSlot {
+  id: string;
+  teacher_id: string;
+  slot_start: string;
+  slot_end: string;
+  is_open: boolean;
+  notes?: string;
   created_at?: string;
   updated_at?: string;
 }

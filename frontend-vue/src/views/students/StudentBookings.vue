@@ -24,10 +24,19 @@
             <el-option v-for="student in studentOptions" :key="student.value" :label="student.label" :value="student.value" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="$t('bookingForm.teacher')" prop="teacher_id">
-          <el-select v-model="form.teacher_id" filterable :placeholder="$t('bookingForm.teacherPlaceholder')">
-            <el-option v-for="teacher in teacherOptions" :key="teacher.value" :label="teacher.label" :value="teacher.value" />
+        <el-form-item :label="$t('bookingForm.slot')" prop="slot_id">
+          <el-select v-model="form.slot_id" filterable :placeholder="$t('bookingForm.slotPlaceholder')">
+            <el-option
+              v-for="slot in slotOptions"
+              :key="slot.value"
+              :label="slot.label"
+              :value="slot.value"
+              :disabled="slot.disabled"
+            />
           </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('bookingForm.teacher')" prop="teacher_id">
+          <el-input v-model="teacherLabel" disabled />
         </el-form-item>
         <el-form-item :label="$t('bookingForm.start')" prop="scheduled_start">
           <el-date-picker
@@ -35,6 +44,7 @@
             type="datetime"
             value-format="YYYY-MM-DDTHH:mm:ssZ"
             :placeholder="$t('bookingForm.startPlaceholder')"
+            disabled
           />
         </el-form-item>
         <el-form-item :label="$t('bookingForm.end')" prop="scheduled_end">
@@ -43,6 +53,7 @@
             type="datetime"
             value-format="YYYY-MM-DDTHH:mm:ssZ"
             :placeholder="$t('bookingForm.endPlaceholder')"
+            disabled
           />
         </el-form-item>
         <el-form-item :label="$t('bookingForm.status')" prop="status">
@@ -84,12 +95,14 @@ const saving = ref(false);
 const formRef = ref<FormInstance>();
 const form = reactive<{
   student_id: string;
+  slot_id: string;
   teacher_id: string;
   scheduled_start: string;
   scheduled_end: string;
   status: Booking['status'];
 }>({
   student_id: '',
+  slot_id: '',
   teacher_id: '',
   scheduled_start: '',
   scheduled_end: '',
@@ -107,8 +120,8 @@ const userLabel = (id: string) => {
 const rows = computed(() =>
   dataStore.bookingView.map((b) => ({
     ...b,
-    student: userLabel(b.student_id),
-    teacher: userLabel(b.teacher_id),
+    student: b.student_name ?? userLabel(b.student_id),
+    teacher: b.teacher_name ?? userLabel(b.teacher_id),
     schedule: `${dayjs(b.scheduled_start).format('MM/DD HH:mm')} - ${dayjs(b.scheduled_end).format('HH:mm')}`
   }))
 );
@@ -120,30 +133,26 @@ const studentOptions = computed(() =>
   }))
 );
 
-const teacherOptions = computed(() =>
-  dataStore.teachers.map((teacher) => ({
-    value: teacher.id,
-    label: userLabel(teacher.id)
+const openSlots = computed(() => dataStore.teacherSlots.filter((slot) => slot.is_open));
+
+const slotOptions = computed(() =>
+  openSlots.value.map((slot) => ({
+    value: slot.id,
+    label: `${userLabel(slot.teacher_id)} | ${dayjs(slot.slot_start).format('MM/DD HH:mm')} - ${dayjs(
+      slot.slot_end
+    ).format('HH:mm')}`,
+    disabled: !slot.is_open
   }))
 );
 
+const teacherLabel = computed(() => userLabel(form.teacher_id));
+
 const rules: FormRules = {
   student_id: [{ required: true, message: t('bookingForm.validation.student'), trigger: 'change' }],
+  slot_id: [{ required: true, message: t('bookingForm.validation.slot'), trigger: 'change' }],
   teacher_id: [{ required: true, message: t('bookingForm.validation.teacher'), trigger: 'change' }],
   scheduled_start: [{ required: true, message: t('bookingForm.validation.start'), trigger: 'change' }],
-  scheduled_end: [
-    { required: true, message: t('bookingForm.validation.end'), trigger: 'change' },
-    {
-      validator: (_rule, value, callback) => {
-        if (!value) return callback();
-        const start = dayjs(form.scheduled_start);
-        const end = dayjs(value);
-        if (end.isAfter(start)) return callback();
-        callback(new Error(t('bookingForm.validation.endAfterStart')));
-      },
-      trigger: 'change'
-    }
-  ]
+  scheduled_end: [{ required: true, message: t('bookingForm.validation.end'), trigger: 'change' }]
 };
 
 const generateUuid = () =>
@@ -156,16 +165,17 @@ const generateUuid = () =>
       });
 
 const resetForm = () => {
-  const defaultStart = dayjs().add(1, 'day').hour(10).minute(0).second(0).millisecond(0);
   form.student_id = studentOptions.value[0]?.value ?? '';
-  form.teacher_id = teacherOptions.value[0]?.value ?? '';
-  form.scheduled_start = defaultStart.toISOString();
-  form.scheduled_end = defaultStart.add(1, 'hour').toISOString();
+  form.slot_id = slotOptions.value[0]?.value ?? '';
+  const slot = openSlots.value.find((s) => s.id === form.slot_id);
+  form.teacher_id = slot?.teacher_id ?? '';
+  form.scheduled_start = slot?.slot_start ?? '';
+  form.scheduled_end = slot?.slot_end ?? '';
   form.status = 'scheduled';
 };
 
 const openDialog = () => {
-  if (!studentOptions.value.length || !teacherOptions.value.length) {
+  if (!studentOptions.value.length || !slotOptions.value.length) {
     ElMessage.error(t('bookingForm.validation.noProfiles'));
     return;
   }
@@ -178,13 +188,13 @@ const closeDialog = () => {
 };
 
 watch(
-  () => form.scheduled_start,
-  (next) => {
-    if (!next) return;
-    const start = dayjs(next);
-    if (dayjs(form.scheduled_end).isBefore(start)) {
-      form.scheduled_end = start.add(1, 'hour').toISOString();
-    }
+  () => form.slot_id,
+  (slotId) => {
+    const slot = openSlots.value.find((s) => s.id === slotId);
+    if (!slot) return;
+    form.teacher_id = slot.teacher_id;
+    form.scheduled_start = slot.slot_start;
+    form.scheduled_end = slot.slot_end;
   }
 );
 
@@ -204,6 +214,7 @@ const submitForm = async () => {
       id: generateUuid(),
       student_id: form.student_id,
       teacher_id: form.teacher_id,
+      slot_id: form.slot_id,
       scheduled_start: dayjs(form.scheduled_start).toISOString(),
       scheduled_end: dayjs(form.scheduled_end).toISOString(),
       status: form.status

@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia';
 import type {
   Booking,
+  BookingManagement,
   Student,
   Teacher,
+  TeacherAvailableSlot,
   TeacherPayroll,
   UserProfile
 } from '@/types/schema';
@@ -12,7 +14,8 @@ interface State {
   users: UserProfile[];
   teachers: Teacher[];
   students: Student[];
-  bookings: Booking[];
+  bookings: BookingManagement[];
+  teacherSlots: TeacherAvailableSlot[];
   payrolls: TeacherPayroll[];
   initialized: boolean;
 }
@@ -23,6 +26,7 @@ export const useDataStore = defineStore('data', {
     teachers: [],
     students: [],
     bookings: [],
+    teacherSlots: [],
     payrolls: [],
     initialized: false
   }),
@@ -35,11 +39,7 @@ export const useDataStore = defineStore('data', {
       ...s,
       profile: state.users.find((u) => u.id === s.id)
     })),
-    bookingView: (state) => state.bookings.map((b) => ({
-      ...b,
-      student: state.users.find((u) => u.id === b.student_id),
-      teacher: state.users.find((u) => u.id === b.teacher_id)
-    }))
+    bookingView: (state) => state.bookings
   },
   actions: {
     async ensureInitialized() {
@@ -53,6 +53,7 @@ export const useDataStore = defineStore('data', {
         this.fetchTeachers(),
         this.fetchStudents(),
         this.fetchBookings(),
+        this.fetchTeacherSlots(),
         this.fetchPayrolls()
       ]);
     },
@@ -72,9 +73,17 @@ export const useDataStore = defineStore('data', {
       this.students = (data ?? []) as Student[];
     },
     async fetchBookings() {
-      const { data, error } = await supabase.from('bookings').select('*');
+      const { data, error } = await supabase.from('v_booking_management').select('*');
       if (error) throw error;
-      this.bookings = (data ?? []) as Booking[];
+      this.bookings = (data ?? []) as BookingManagement[];
+    },
+    async fetchTeacherSlots() {
+      const { data, error } = await supabase
+        .from('teacher_available_slots')
+        .select('*')
+        .order('slot_start', { ascending: true });
+      if (error) throw error;
+      this.teacherSlots = (data ?? []) as TeacherAvailableSlot[];
     },
     async fetchPayrolls() {
       const { data, error } = await supabase.from('teacher_payroll').select('*');
@@ -107,7 +116,17 @@ export const useDataStore = defineStore('data', {
     async addBooking(booking: Booking) {
       const { data, error } = await supabase.from('bookings').insert(booking).select().single();
       if (error) throw error;
-      this.bookings.push((data as Booking) ?? booking);
+      const createdId = ((data as Booking | null)?.id ?? booking.id) as string;
+
+      const { data: viewRow, error: viewError } = await supabase
+        .from('v_booking_management')
+        .select('*')
+        .eq('id', createdId)
+        .single();
+      if (viewError) throw viewError;
+
+      const next = (viewRow as BookingManagement | null) ?? (booking as BookingManagement);
+      this.bookings.push(next);
     }
   }
 });

@@ -69,11 +69,13 @@ export default {
   bookingForm: {
     title: 'Create Booking',
     student: 'Student',
+    slot: 'Available slot',
     teacher: 'Teacher',
     start: 'Start time',
     end: 'End time',
     status: 'Status',
     studentPlaceholder: 'Select a student',
+    slotPlaceholder: 'Choose an available time',
     teacherPlaceholder: 'Select a teacher',
     startPlaceholder: 'Choose a start time',
     endPlaceholder: 'Choose an end time',
@@ -89,11 +91,12 @@ export default {
     },
     validation: {
       student: 'Please select a student',
+      slot: 'Please select an available time slot',
       teacher: 'Please select a teacher',
       start: 'Please select a start time',
       end: 'Please select an end time',
       endAfterStart: 'End time must be after start time',
-      noProfiles: 'Please add at least one student and one teacher before booking'
+      noProfiles: 'Please add at least one student and one available slot before booking'
     }
   }
 };
