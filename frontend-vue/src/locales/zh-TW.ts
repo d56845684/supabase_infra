@@ -62,5 +62,35 @@ export default {
     updateStatus: '更新狀態',
     filter: '篩選',
     addBooking: '新增預約'
+  },
+  bookingForm: {
+    title: '建立預約',
+    student: '學生',
+    teacher: '老師',
+    start: '開始時間',
+    end: '結束時間',
+    status: '狀態',
+    studentPlaceholder: '選擇學生',
+    teacherPlaceholder: '選擇老師',
+    startPlaceholder: '選擇開始時間',
+    endPlaceholder: '選擇結束時間',
+    submit: '建立',
+    cancel: '取消',
+    success: '已建立新預約',
+    failure: '建立預約時發生錯誤',
+    statusLabels: {
+      scheduled: '已排程',
+      completed: '已完成',
+      cancelled: '已取消',
+      no_show: '未出席'
+    },
+    validation: {
+      student: '請選擇學生',
+      teacher: '請選擇老師',
+      start: '請選擇開始時間',
+      end: '請選擇結束時間',
+      endAfterStart: '結束時間需晚於開始時間',
+      noProfiles: '請先建立至少一位學生與老師'
+    }
   }
 };
