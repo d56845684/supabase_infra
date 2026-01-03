@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { nanoid } from 'nanoid';
-import type { UserProfile, UserRole } from '@/types/schema';
+import type { UserProfile } from '@/types/schema';
+import { supabase } from '@/lib/supabase';
 
 interface SessionMeta {
   userId: string;
@@ -9,64 +10,60 @@ interface SessionMeta {
 
 const ACTIVE_SESSION_KEY = 'teaching-platform-active-session';
 
-const seedUsers: UserProfile[] = [
-  {
-    id: 'admin-1',
-    role: 'admin',
-    fullName: 'Admin User',
-    email: 'admin@example.com',
-    phone: '+886900111222'
-  },
-  {
-    id: 'teacher-1',
-    role: 'teacher',
-    fullName: 'Teacher Jane',
-    email: 'teacher@example.com'
-  },
-  {
-    id: 'student-1',
-    role: 'student',
-    fullName: 'Student Ray',
-    email: 'student@example.com'
-  }
-];
-
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     currentUser: null as UserProfile | null,
     sessionId: ''
   }),
   actions: {
-    autoLogin() {
-      if (!this.currentUser) {
-        this.currentUser = seedUsers[0];
-        this.sessionId = this.persistSession(this.currentUser.id);
+    async ensureSession() {
+      if (this.currentUser) return;
+      const existing = this.readSession();
+      if (existing) {
+        await this.loadUser(existing.userId);
+        this.sessionId = existing.sessionId;
+        return;
       }
+
+      const { data, error } = await supabase.from('user_profiles').select('*').eq('role', 'admin').limit(1).single();
+      if (error) throw error;
+      const admin = data as UserProfile;
+      this.currentUser = admin;
+      this.sessionId = await this.persistSession(admin.id);
     },
-    login(userId: string, role: UserRole) {
-      const found = seedUsers.find((u) => u.id === userId && u.role === role);
-      if (!found) throw new Error('User not found');
+    async loginWithEmail(email: string, password: string) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      const userId = data.session?.user.id;
+      if (!userId) throw new Error('登入失敗，請稍後再試');
 
       const active = this.readSession();
       if (active && active.userId === userId && active.sessionId !== this.sessionId) {
         throw new Error('同帳號已有其他登入工作階段');
       }
 
-      this.currentUser = found;
-      this.sessionId = this.persistSession(userId);
+      await this.loadUser(userId);
+      this.sessionId = await this.persistSession(userId);
     },
-    logout() {
+    async loadUser(userId: string) {
+      const { data, error } = await supabase.from('user_profiles').select('*').eq('id', userId).single();
+      if (error) throw error;
+      this.currentUser = data as UserProfile;
+    },
+    async logout() {
       const active = this.readSession();
       if (active && active.sessionId === this.sessionId) {
         localStorage.removeItem(ACTIVE_SESSION_KEY);
       }
+      await supabase.auth.signOut();
       this.currentUser = null;
       this.sessionId = '';
     },
-    persistSession(userId: string) {
+    async persistSession(userId: string) {
       const sessionId = nanoid();
       const session: SessionMeta = { userId, sessionId };
       localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
+      await supabase.from('active_sessions').upsert({ user_id: userId, session_id: sessionId });
       return sessionId;
     },
     readSession(): SessionMeta | null {

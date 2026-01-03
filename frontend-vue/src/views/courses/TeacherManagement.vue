@@ -33,12 +33,19 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { useDataStore } from '@/stores/dataStore';
+import { ElMessage } from 'element-plus';
 
 const dataStore = useDataStore();
 const { teacherProfiles: rows } = storeToRefs(dataStore);
 
-const changeStatus = (id: string, status: string) => {
-  dataStore.updateTeacherStatus(id, status as any);
+const changeStatus = async (id: string, status: string) => {
+  try {
+    await dataStore.updateTeacherStatus(id, status as any);
+    ElMessage.success('老師狀態已更新');
+  } catch (error) {
+    console.error(error);
+    ElMessage.error('更新老師狀態時發生錯誤');
+  }
 };
 </script>
 

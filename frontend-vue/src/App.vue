@@ -71,8 +71,8 @@ const activePath = computed(() => route.path);
 const locale = ref<string>(i18nLocale.value as string);
 
 const { resetTimer } = useInactivityLogout({
-  onTimeout: () => {
-    authStore.logout();
+  onTimeout: async () => {
+    await authStore.logout();
     router.push('/system/accounts');
   }
 });
@@ -86,8 +86,8 @@ const toggleTheme = () => themeStore.toggleTheme();
 const changeLocale = (value: string) => {
   i18nLocale.value = value;
 };
-const onLogout = () => {
-  authStore.logout();
+const onLogout = async () => {
+  await authStore.logout();
   router.push('/system/accounts');
 };
 </script>

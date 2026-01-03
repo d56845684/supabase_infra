@@ -12,6 +12,7 @@ docker build -t teaching-platform-frontend -f frontend-vue/Dockerfile frontend-v
 
 - Uses Node 20 for the build step and Nginx Alpine for the runtime image.
 - The build copies only `package.json` first to leverage Docker layer caching for dependencies.
+- Requires `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to point the app at your Supabase gateway.
 
 ## Run
 
@@ -25,6 +26,18 @@ docker run -d \
 ```
 
 Adjust the host port (`4173` above) as needed. The Nginx configuration includes a history mode fallback for Vue Router.
+
+## Compose
+
+To run the Supabase stack and the Vue frontend together, use the bundled compose service:
+
+```bash
+# ensure .env contains SUPABASE_PUBLIC_URL, ANON_KEY, and FRONTEND_PORT (optional)
+docker compose up --build frontend
+```
+
+- The compose service builds the SPA using the Supabase endpoint from `SUPABASE_PUBLIC_URL` and injects the anonymous key from `ANON_KEY`.
+- `FRONTEND_PORT` controls the host port (defaults to `4173`).
 
 ## Updating
 

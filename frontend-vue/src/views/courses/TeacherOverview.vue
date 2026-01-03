@@ -23,9 +23,19 @@ import { useDataStore } from '@/stores/dataStore';
 
 const dataStore = useDataStore();
 const chartRef = ref<HTMLDivElement>();
-const selectedTeacher = ref<string>('teacher-1');
+const selectedTeacher = ref<string>('');
 
 const teacherUsers = computed(() => dataStore.users.filter((u) => u.role === 'teacher'));
+
+watch(
+  teacherUsers,
+  (list) => {
+    if (!selectedTeacher.value && list.length > 0) {
+      selectedTeacher.value = list[0].id;
+    }
+  },
+  { immediate: true }
+);
 
 const bookingRows = computed(() =>
   dataStore.bookingView

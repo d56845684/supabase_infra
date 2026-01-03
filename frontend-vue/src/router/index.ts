@@ -8,6 +8,7 @@ import TeacherAccounts from '@/views/courses/TeacherAccounts.vue';
 import TeacherOverview from '@/views/courses/TeacherOverview.vue';
 import StudentBookings from '@/views/students/StudentBookings.vue';
 import { useAuthStore } from '@/stores/auth';
+import { useDataStore } from '@/stores/dataStore';
 
 const routes = [
   { path: '/', redirect: '/system/accounts' },
@@ -26,10 +27,14 @@ const router = createRouter({
   routes
 });
 
-function guardLoggedIn(to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) {
+async function guardLoggedIn(to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) {
   const auth = useAuthStore();
-  if (!auth.currentUser) {
-    auth.autoLogin();
+  const dataStore = useDataStore();
+  try {
+    await auth.ensureSession();
+    await dataStore.ensureInitialized();
+  } catch (error) {
+    console.error('Failed to sync Supabase state', error);
   }
   next();
 }

@@ -29,6 +29,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useDataStore } from '@/stores/dataStore';
+import { ElMessage } from 'element-plus';
 
 const dataStore = useDataStore();
 
@@ -39,7 +40,15 @@ const leaveRows = computed(() =>
   }))
 );
 
-const approve = (id: string) => dataStore.approveLeave(id);
+const approve = async (id: string) => {
+  try {
+    await dataStore.approveLeave(id);
+    ElMessage.success('已核准假單');
+  } catch (error) {
+    console.error(error);
+    ElMessage.error('核准假單時發生錯誤');
+  }
+};
 </script>
 
 <style scoped>
