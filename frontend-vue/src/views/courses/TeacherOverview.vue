@@ -20,12 +20,22 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import * as echarts from 'echarts';
 import dayjs from 'dayjs';
 import { useDataStore } from '@/stores/dataStore';
+import { useI18n } from 'vue-i18n';
 
 const dataStore = useDataStore();
 const chartRef = ref<HTMLDivElement>();
 const selectedTeacher = ref<string>('');
+const { t } = useI18n();
 
 const teacherUsers = computed(() => dataStore.users.filter((u) => u.role === 'teacher'));
+
+const userLabel = (id: string) => {
+  const user = dataStore.users.find((u) => u.id === id);
+  if (user?.full_name && user?.email) return `${user.full_name} (${user.email})`;
+  if (user?.full_name) return user.full_name;
+  if (user?.email) return user.email;
+  return t('labels.unknownUser');
+};
 
 watch(
   teacherUsers,
@@ -43,7 +53,7 @@ const bookingRows = computed(() =>
     .map((b) => ({
       ...b,
       schedule: `${dayjs(b.scheduled_start).format('MM/DD HH:mm')} - ${dayjs(b.scheduled_end).format('HH:mm')}`,
-      student: b.student?.full_name ?? b.student_id
+      student: userLabel(b.student_id)
     }))
 );
 

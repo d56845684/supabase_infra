@@ -13,6 +13,9 @@ export default {
     studentBookings: 'Booking Management'
   },
   theme: { light: 'Light', dark: 'Dark' },
+  labels: {
+    unknownUser: 'Unknown user'
+  },
   auth: {
     logout: 'Logout',
     loginTitle: 'Welcome back',

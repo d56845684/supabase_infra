@@ -96,11 +96,19 @@ const form = reactive<{
   status: 'scheduled'
 });
 
+const userLabel = (id: string) => {
+  const user = dataStore.users.find((u) => u.id === id);
+  if (user?.full_name && user?.email) return `${user.full_name} (${user.email})`;
+  if (user?.full_name) return user.full_name;
+  if (user?.email) return user.email;
+  return t('labels.unknownUser');
+};
+
 const rows = computed(() =>
   dataStore.bookingView.map((b) => ({
     ...b,
-    student: b.student?.full_name ?? b.student_id,
-    teacher: b.teacher?.full_name ?? b.teacher_id,
+    student: userLabel(b.student_id),
+    teacher: userLabel(b.teacher_id),
     schedule: `${dayjs(b.scheduled_start).format('MM/DD HH:mm')} - ${dayjs(b.scheduled_end).format('HH:mm')}`
   }))
 );
@@ -108,14 +116,14 @@ const rows = computed(() =>
 const studentOptions = computed(() =>
   dataStore.students.map((student) => ({
     value: student.id,
-    label: dataStore.users.find((u) => u.id === student.id)?.full_name ?? student.id
+    label: userLabel(student.id)
   }))
 );
 
 const teacherOptions = computed(() =>
   dataStore.teachers.map((teacher) => ({
     value: teacher.id,
-    label: dataStore.users.find((u) => u.id === teacher.id)?.full_name ?? teacher.id
+    label: userLabel(teacher.id)
   }))
 );
 

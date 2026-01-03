@@ -21,14 +21,24 @@
 import dayjs from 'dayjs';
 import { computed } from 'vue';
 import { useDataStore } from '@/stores/dataStore';
+import { useI18n } from 'vue-i18n';
 
 const dataStore = useDataStore();
+const { t } = useI18n();
+
+const userLabel = (id: string) => {
+  const user = dataStore.users.find((u) => u.id === id);
+  if (user?.full_name && user?.email) return `${user.full_name} (${user.email})`;
+  if (user?.full_name) return user.full_name;
+  if (user?.email) return user.email;
+  return t('labels.unknownUser');
+};
+
 const payrollRows = computed(() =>
   dataStore.payrolls.map((row) => {
-    const teacher = dataStore.users.find((u) => u.id === row.teacher_id);
     return {
       ...row,
-      teacher: teacher?.full_name ?? row.teacher_id,
+      teacher: userLabel(row.teacher_id),
       period: `${dayjs(row.period_start).format('MM/DD')} - ${dayjs(row.period_end).format('MM/DD')}`
     };
   })

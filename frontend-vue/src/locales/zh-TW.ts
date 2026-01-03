@@ -13,6 +13,9 @@ export default {
     studentBookings: '預約管理'
   },
   theme: { light: '淺色', dark: '深色' },
+  labels: {
+    unknownUser: '未知使用者'
+  },
   auth: {
     logout: '登出',
     loginTitle: '歡迎回來',
