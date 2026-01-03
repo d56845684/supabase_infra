@@ -13,7 +13,36 @@ export default {
     studentBookings: 'Booking Management'
   },
   theme: { light: 'Light', dark: 'Dark' },
-  auth: { logout: 'Logout' },
+  auth: {
+    logout: 'Logout',
+    loginTitle: 'Welcome back',
+    loginSubtitle: 'Sign in with your school account to continue.',
+    email: 'Email',
+    password: 'Password',
+    confirmPassword: 'Confirm password',
+    phone: 'Phone (optional)',
+    signIn: 'Sign in',
+    register: 'Create account',
+    registerTitle: 'Create your account',
+    registerSubtitle: 'Choose a student or teacher account and set your password.',
+    registerSuccess: 'Registration successful! Redirecting you to the dashboard...',
+    registerCheckEmail: 'Registration successful. Please check your inbox to verify your email.',
+    registerError: 'Registration failed. Please try again later.',
+    roleHint: 'Available roles',
+    roles: {
+      admin: 'Admin',
+      teacher: 'Teacher',
+      student: 'Student'
+    },
+    passwordMismatch: 'Passwords do not match',
+    noAccount: "Don't have an account?",
+    createAccount: 'Register now',
+    haveAccount: 'Already have an account?',
+    backToLogin: 'Back to login',
+    fullName: 'Full name',
+    emailVerificationHint: 'Email verification is enabled. You will receive a confirmation link.',
+    emailVerificationDisabled: 'Email verification is currently disabled. Accounts will activate immediately.'
+  },
   tables: {
     teacher: 'Teacher',
     role: 'Role',
