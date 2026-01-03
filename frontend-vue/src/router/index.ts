@@ -6,6 +6,7 @@ import TeacherLeave from '@/views/system/TeacherLeave.vue';
 import TeacherManagement from '@/views/courses/TeacherManagement.vue';
 import TeacherAccounts from '@/views/courses/TeacherAccounts.vue';
 import TeacherOverview from '@/views/courses/TeacherOverview.vue';
+import TeacherSlots from '@/views/courses/TeacherSlots.vue';
 import StudentBookings from '@/views/students/StudentBookings.vue';
 import LoginView from '@/views/auth/LoginView.vue';
 import RegisterView from '@/views/auth/RegisterView.vue';
@@ -24,6 +25,7 @@ const routes = [
   { path: '/courses/teachers', component: TeacherManagement, meta: { roles: ['admin', 'teacher'] satisfies UserRole[] } },
   { path: '/courses/teacher-accounts', component: TeacherAccounts, meta: { roles: ['admin', 'teacher'] satisfies UserRole[] } },
   { path: '/courses/overview', component: TeacherOverview, meta: { roles: ['admin', 'teacher'] satisfies UserRole[] } },
+  { path: '/courses/slots', component: TeacherSlots, meta: { roles: ['admin', 'teacher'] satisfies UserRole[] } },
   { path: '/students/bookings', component: StudentBookings, meta: { roles: ['admin', 'teacher', 'student'] satisfies UserRole[] } }
 ];
 

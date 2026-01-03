@@ -9,6 +9,7 @@ export default {
     teacherProfiles: 'Teachers',
     teacherAccounts: 'Teacher Accounts',
     bookingOverview: 'Teacher Booking Overview',
+    teacherSlots: 'Teacher Slots',
     students: 'Students',
     studentBookings: 'Booking Management'
   },
@@ -65,6 +66,33 @@ export default {
     updateStatus: 'Update Status',
     filter: 'Filter',
     addBooking: 'Add Booking'
+  },
+  slotForm: {
+    title: 'Manage Available Slots',
+    add: 'Add Slot',
+    teacher: 'Teacher',
+    start: 'Start time',
+    end: 'End time',
+    isOpen: 'Allow students to book',
+    openLabel: 'Open',
+    closedLabel: 'Closed',
+    visibility: 'Visibility',
+    visibilityAll: 'All students can see',
+    visibilitySpecific: 'Only specific students',
+    students: 'Students',
+    notes: 'Notes',
+    submit: 'Save',
+    cancel: 'Cancel',
+    overlapError: 'This slot conflicts with an existing slot for the same teacher.',
+    success: 'Slot created successfully',
+    failure: 'Failed to create slot',
+    validation: {
+      teacher: 'Please select a teacher',
+      start: 'Please select a start time',
+      end: 'Please select an end time',
+      endAfterStart: 'End time must be after start time',
+      students: 'Please choose at least one student for restricted visibility'
+    }
   },
   bookingForm: {
     title: 'Create Booking',

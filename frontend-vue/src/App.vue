@@ -51,6 +51,9 @@
               <el-menu-item v-if="canAccessRoute('/courses/overview')" index="/courses/overview">
                 {{ $t('nav.bookingOverview') }}
               </el-menu-item>
+              <el-menu-item v-if="canAccessRoute('/courses/slots')" index="/courses/slots">
+                {{ $t('nav.teacherSlots') }}
+              </el-menu-item>
             </el-sub-menu>
             <el-sub-menu v-if="hasStudentMenu" index="students">
               <template #title>{{ $t('nav.students') }}</template>

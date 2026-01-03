@@ -9,6 +9,7 @@ export default {
     teacherProfiles: '老師管理',
     teacherAccounts: '老師帳號管理',
     bookingOverview: '老師預約總覽',
+    teacherSlots: '可預約時段',
     students: '學生管理',
     studentBookings: '預約管理'
   },
@@ -65,6 +66,33 @@ export default {
     updateStatus: '更新狀態',
     filter: '篩選',
     addBooking: '新增預約'
+  },
+  slotForm: {
+    title: '管理可預約時段',
+    add: '新增時段',
+    teacher: '老師',
+    start: '開始時間',
+    end: '結束時間',
+    isOpen: '允許學生預約',
+    openLabel: '開放',
+    closedLabel: '不開放',
+    visibility: '可見範圍',
+    visibilityAll: '所有學生可見',
+    visibilitySpecific: '僅特定學生可見',
+    students: '學生',
+    notes: '備註',
+    submit: '儲存',
+    cancel: '取消',
+    overlapError: '與同老師的其他時段衝突，請調整時間。',
+    success: '時段建立成功',
+    failure: '建立時段失敗',
+    validation: {
+      teacher: '請選擇老師',
+      start: '請選擇開始時間',
+      end: '請選擇結束時間',
+      endAfterStart: '結束時間必須晚於開始時間',
+      students: '限制可見範圍時，至少選擇一位學生'
+    }
   },
   bookingForm: {
     title: '建立預約',

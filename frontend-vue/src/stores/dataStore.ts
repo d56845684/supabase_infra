@@ -85,6 +85,16 @@ export const useDataStore = defineStore('data', {
       if (error) throw error;
       this.teacherSlots = (data ?? []) as TeacherAvailableSlot[];
     },
+    async addTeacherSlot(slot: Partial<TeacherAvailableSlot>) {
+      const { data, error } = await supabase
+        .from('teacher_available_slots')
+        .insert(slot)
+        .select()
+        .single();
+      if (error) throw error;
+      if (!data) return;
+      this.teacherSlots.push(data as TeacherAvailableSlot);
+    },
     async fetchPayrolls() {
       const { data, error } = await supabase.from('teacher_payroll').select('*');
       if (error) throw error;

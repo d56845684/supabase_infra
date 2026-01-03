@@ -99,6 +99,8 @@ export interface TeacherAvailableSlot {
   slot_start: string;
   slot_end: string;
   is_open: boolean;
+  visible_to_all?: boolean;
+  visible_student_ids?: string[];
   notes?: string;
   created_at?: string;
   updated_at?: string;
