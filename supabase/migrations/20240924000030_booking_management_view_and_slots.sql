@@ -141,22 +141,17 @@ FROM public.bookings b
 LEFT JOIN public.user_profiles sup ON sup.id = b.student_id
 LEFT JOIN public.user_profiles tup ON tup.id = b.teacher_id
 LEFT JOIN public.teacher_available_slots tas ON tas.id = b.slot_id
-WHERE b.deleted_at IS NULL;
+WHERE b.deleted_at IS NULL
+  AND (
+    public.is_admin()
+    OR b.student_id = auth.uid()
+    OR b.teacher_id = auth.uid()
+  );
 
 ALTER VIEW public.v_booking_management SET (security_barrier = true);
 ALTER VIEW public.v_booking_management OWNER TO postgres;
-ALTER VIEW public.v_booking_management ENABLE ROW LEVEL SECURITY;
-
--- RLS on the management view mirrors booking visibility but avoids recursion
-DROP POLICY IF EXISTS "Admins can view all booking management" ON public.v_booking_management;
-CREATE POLICY "Admins can view all booking management" ON public.v_booking_management
-    FOR SELECT TO authenticated
-    USING (public.is_admin());
-
-DROP POLICY IF EXISTS "Participants view booking management" ON public.v_booking_management;
-CREATE POLICY "Participants view booking management" ON public.v_booking_management
-    FOR SELECT TO authenticated
-    USING (student_id = auth.uid() OR teacher_id = auth.uid());
+REVOKE ALL ON public.v_booking_management FROM PUBLIC;
+GRANT SELECT ON public.v_booking_management TO authenticated;
 
 -- tighten booking insert for students to only open slots
 DROP POLICY IF EXISTS "Students can create bookings" ON public.bookings;
