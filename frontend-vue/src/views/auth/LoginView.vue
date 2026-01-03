@@ -25,6 +25,10 @@
         </div>
         <el-alert v-if="error" type="error" :title="error" show-icon />
       </el-form>
+      <div class="footer-actions">
+        <span>{{ $t('auth.noAccount') }}</span>
+        <router-link to="/register">{{ $t('auth.createAccount') }}</router-link>
+      </div>
     </div>
   </div>
 </template>
@@ -123,5 +127,17 @@ const onSubmit = async () => {
 
 .role-hint li {
   line-height: 1.5;
+}
+
+.footer-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: #cbd5e1;
+}
+
+.footer-actions a {
+  color: #a5b4fc;
 }
 </style>

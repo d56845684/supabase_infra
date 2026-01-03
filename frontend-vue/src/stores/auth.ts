@@ -49,6 +49,46 @@ export const useAuthStore = defineStore('auth', {
         this.sessionId = await this.persistSession(userId);
       }
     },
+    async registerWithEmail(payload: {
+      fullName: string;
+      email: string;
+      password: string;
+      phone?: string;
+      role: UserRole;
+      requireEmailVerification?: boolean;
+      emailRedirectTo?: string;
+    }) {
+      const { fullName, email, password, phone, role, requireEmailVerification, emailRedirectTo } = payload;
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: requireEmailVerification ? emailRedirectTo : undefined,
+          data: {
+            full_name: fullName,
+            phone,
+            requested_role: role
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      const userId = data.session?.user.id ?? data.user?.id;
+      if (!userId) {
+        throw new Error('註冊成功，請完成信箱驗證後再登入');
+      }
+
+      const active = this.readSession();
+      if (active && active.userId === userId && active.sessionId !== this.sessionId) {
+        throw new Error('同帳號已有其他登入工作階段');
+      }
+
+      await this.loadUser(userId);
+      this.sessionId = await this.persistSession(userId);
+
+      return { needsEmailConfirmation: !data.session };
+    },
     async loginWithEmail(email: string, password: string) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
