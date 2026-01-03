@@ -13,7 +13,20 @@ export default {
     studentBookings: 'Booking Management'
   },
   theme: { light: 'Light', dark: 'Dark' },
-  auth: { logout: 'Logout' },
+  auth: {
+    logout: 'Logout',
+    loginTitle: 'Welcome back',
+    loginSubtitle: 'Sign in with your school account to continue.',
+    email: 'Email',
+    password: 'Password',
+    signIn: 'Sign in',
+    roleHint: 'Available roles',
+    roles: {
+      admin: 'Admin',
+      teacher: 'Teacher',
+      student: 'Student'
+    }
+  },
   tables: {
     teacher: 'Teacher',
     role: 'Role',

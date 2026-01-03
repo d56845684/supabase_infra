@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { nanoid } from 'nanoid';
-import type { UserProfile } from '@/types/schema';
+import type { UserProfile, UserRole } from '@/types/schema';
 import { supabase } from '@/lib/supabase';
 
 interface SessionMeta {
@@ -15,21 +15,39 @@ export const useAuthStore = defineStore('auth', {
     currentUser: null as UserProfile | null,
     sessionId: ''
   }),
+  getters: {
+    isLoggedIn: (state) => !!state.currentUser,
+    defaultRoute: (state) => {
+      const role = state.currentUser?.role;
+      switch (role) {
+        case 'admin':
+          return '/system/accounts';
+        case 'teacher':
+          return '/courses/overview';
+        case 'student':
+          return '/students/bookings';
+        default:
+          return '/login';
+      }
+    }
+  },
   actions: {
-    async ensureSession() {
+    async restoreSession() {
       if (this.currentUser) return;
       const existing = this.readSession();
+      const { data } = await supabase.auth.getSession();
+      const userId = existing?.userId ?? data.session?.user.id;
+      if (!userId) return;
+
       if (existing) {
-        await this.loadUser(existing.userId);
         this.sessionId = existing.sessionId;
-        return;
       }
 
-      const { data, error } = await supabase.from('user_profiles').select('*').eq('role', 'admin').limit(1).single();
-      if (error) throw error;
-      const admin = data as UserProfile;
-      this.currentUser = admin;
-      this.sessionId = await this.persistSession(admin.id);
+      await this.loadUser(userId);
+
+      if (!existing) {
+        this.sessionId = await this.persistSession(userId);
+      }
     },
     async loginWithEmail(email: string, password: string) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -75,6 +93,10 @@ export const useAuthStore = defineStore('auth', {
         console.error('Failed to parse session', error);
         return null;
       }
+    },
+    canAccessRole(role: UserRole, allowed?: UserRole[]) {
+      if (!allowed || allowed.length === 0) return true;
+      return allowed.includes(role);
     }
   }
 });

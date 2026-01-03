@@ -7,19 +7,22 @@ import TeacherManagement from '@/views/courses/TeacherManagement.vue';
 import TeacherAccounts from '@/views/courses/TeacherAccounts.vue';
 import TeacherOverview from '@/views/courses/TeacherOverview.vue';
 import StudentBookings from '@/views/students/StudentBookings.vue';
+import LoginView from '@/views/auth/LoginView.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useDataStore } from '@/stores/dataStore';
+import type { UserRole } from '@/types/schema';
 
 const routes = [
-  { path: '/', redirect: '/system/accounts' },
-  { path: '/system/accounts', component: SystemAccounts },
-  { path: '/system/roles', component: RoleManagement },
-  { path: '/system/payroll', component: Payroll },
-  { path: '/system/leave', component: TeacherLeave },
-  { path: '/courses/teachers', component: TeacherManagement },
-  { path: '/courses/teacher-accounts', component: TeacherAccounts },
-  { path: '/courses/overview', component: TeacherOverview },
-  { path: '/students/bookings', component: StudentBookings }
+  { path: '/', redirect: '/login' },
+  { path: '/login', component: LoginView, meta: { public: true } },
+  { path: '/system/accounts', component: SystemAccounts, meta: { roles: ['admin'] satisfies UserRole[] } },
+  { path: '/system/roles', component: RoleManagement, meta: { roles: ['admin'] satisfies UserRole[] } },
+  { path: '/system/payroll', component: Payroll, meta: { roles: ['admin'] satisfies UserRole[] } },
+  { path: '/system/leave', component: TeacherLeave, meta: { roles: ['admin', 'teacher'] satisfies UserRole[] } },
+  { path: '/courses/teachers', component: TeacherManagement, meta: { roles: ['admin', 'teacher'] satisfies UserRole[] } },
+  { path: '/courses/teacher-accounts', component: TeacherAccounts, meta: { roles: ['admin', 'teacher'] satisfies UserRole[] } },
+  { path: '/courses/overview', component: TeacherOverview, meta: { roles: ['admin', 'teacher'] satisfies UserRole[] } },
+  { path: '/students/bookings', component: StudentBookings, meta: { roles: ['admin', 'teacher', 'student'] satisfies UserRole[] } }
 ];
 
 const router = createRouter({
@@ -30,13 +33,32 @@ const router = createRouter({
 async function guardLoggedIn(to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) {
   const auth = useAuthStore();
   const dataStore = useDataStore();
+
+  if (to.meta.public) {
+    await auth.restoreSession();
+    if (auth.currentUser && to.path === '/login') {
+      return next(auth.defaultRoute);
+    }
+    return next();
+  }
+
+  await auth.restoreSession();
+  if (!auth.currentUser) {
+    return next({ path: '/login', query: { redirect: to.fullPath } });
+  }
+
   try {
-    await auth.ensureSession();
     await dataStore.ensureInitialized();
   } catch (error) {
     console.error('Failed to sync Supabase state', error);
   }
-  next();
+
+  const allowedRoles = to.meta.roles as UserRole[] | undefined;
+  if (!auth.canAccessRole(auth.currentUser.role, allowedRoles)) {
+    return next(auth.defaultRoute);
+  }
+
+  return next();
 }
 
 router.beforeEach(guardLoggedIn);

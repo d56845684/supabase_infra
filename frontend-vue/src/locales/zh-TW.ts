@@ -13,7 +13,20 @@ export default {
     studentBookings: '預約管理'
   },
   theme: { light: '淺色', dark: '深色' },
-  auth: { logout: '登出' },
+  auth: {
+    logout: '登出',
+    loginTitle: '歡迎回來',
+    loginSubtitle: '請使用學校帳號登入後繼續使用系統。',
+    email: '電子郵件',
+    password: '密碼',
+    signIn: '登入',
+    roleHint: '支援的角色',
+    roles: {
+      admin: '管理者',
+      teacher: '老師',
+      student: '學生'
+    }
+  },
   tables: {
     teacher: '老師',
     role: '角色',
