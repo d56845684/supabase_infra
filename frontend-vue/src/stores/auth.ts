@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia';
-import { nanoid } from 'nanoid';
 import type { UserProfile, UserRole } from '@/types/schema';
 import { supabase } from '@/lib/supabase';
 
@@ -118,7 +117,14 @@ export const useAuthStore = defineStore('auth', {
       this.sessionId = '';
     },
     async persistSession(userId: string) {
-      const sessionId = nanoid();
+      const sessionId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+              const r = (Math.random() * 16) | 0;
+              const v = c === 'x' ? r : (r & 0x3) | 0x8;
+              return v.toString(16);
+            });
       const session: SessionMeta = { userId, sessionId };
       localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
       await supabase.from('active_sessions').upsert({ user_id: userId, session_id: sessionId });
