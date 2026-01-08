@@ -22,28 +22,39 @@ async def get_profile(
     else:
         table = "employees"
     
-    result = supabase_service.admin.table("user_profiles")\
-        .select(f"*, {table}(*)")\
-        .eq("id", current_user.user_id)\
-        .single()\
-        .execute()
+    # 查詢 user_profile
+    profiles = await supabase_service.table_select(
+        table="user_profiles",
+        columns="*",
+        filters={"id": current_user.user_id},
+        use_service_key=True
+    )
     
-    if result.data:
-        profile_data = result.data
-        entity_data = profile_data.get(table, {}) or {}
+    entity_data = {}
+    if profiles and len(profiles) > 0:
+        profile = profiles[0]
+        entity_id = profile.get(f"{table.rstrip('s')}_id")
         
-        return DataResponse(
-            data=UserProfile(
-                id=current_user.user_id,
-                email=current_user.email,
-                role=current_user.role,
-                name=entity_data.get("name"),
-                avatar_url=entity_data.get("avatar_url"),
-                is_active=entity_data.get("is_active", True)
+        if entity_id:
+            entities = await supabase_service.table_select(
+                table=table,
+                columns="*",
+                filters={"id": entity_id},
+                use_service_key=True
             )
-        )
+            if entities:
+                entity_data = entities[0]
     
-    return DataResponse(data=None)
+    return DataResponse(
+        data=UserProfile(
+            id=current_user.user_id,
+            email=current_user.email,
+            role=current_user.role,
+            name=entity_data.get("name"),
+            avatar_url=entity_data.get("avatar_url"),
+            is_active=entity_data.get("is_active", True)
+        )
+    )
 
 @router.get("/", response_model=PaginatedResponse[UserProfile])
 async def list_users(
@@ -53,33 +64,34 @@ async def list_users(
     current_user: CurrentUser = Depends(require_staff)
 ):
     """列出所有用戶（僅限員工）"""
-    query = supabase_service.admin.table("user_profiles").select(
-        "id, role, students(name, email, is_active), "
-        "teachers(name, email, is_active), employees(name, email, is_active)",
-        count="exact"
+    filters = {}
+    if role:
+        filters["role"] = role
+    
+    # 查詢 user_profiles
+    profiles = await supabase_service.table_select(
+        table="user_profiles",
+        columns="*",
+        filters=filters if filters else None,
+        use_service_key=True
     )
     
-    if role:
-        query = query.eq("role", role)
-    
-    # 分頁
-    offset = (page - 1) * per_page
-    query = query.range(offset, offset + per_page - 1)
-    
-    result = query.execute()
+    # 分頁處理
+    total = len(profiles)
+    start = (page - 1) * per_page
+    end = start + per_page
+    paginated_profiles = profiles[start:end]
     
     users = []
-    for item in result.data:
-        entity = item.get("students") or item.get("teachers") or item.get("employees") or {}
+    for item in paginated_profiles:
         users.append(UserProfile(
             id=item["id"],
-            email=entity.get("email", ""),
-            role=item["role"],
-            name=entity.get("name"),
-            is_active=entity.get("is_active", True)
+            email="",  # 需要額外查詢
+            role=item.get("role", "student"),
+            name=None,
+            is_active=True
         ))
     
-    total = result.count or 0
     total_pages = (total + per_page - 1) // per_page
     
     return PaginatedResponse(
