@@ -54,7 +54,7 @@ class AuthService:
         """用戶登入"""
         # 1. Supabase 認證
         try:
-            auth_response = self.supabase.sign_in_with_password(email, password)
+            auth_response = await self.supabase.sign_in_with_password(email, password)
         except Exception as e:
             raise AuthException(f"登入失敗: {str(e)}")
         
@@ -148,7 +148,8 @@ class AuthService:
         
         # Supabase 登出
         try:
-            self.supabase.sign_out()
+            if access_token:
+                await self.supabase.sign_out(access_token)
         except:
             pass
         
@@ -223,14 +224,15 @@ class AuthService:
     async def _get_user_role(self, user_id: str) -> str:
         """從資料庫取得用戶角色"""
         try:
-            result = self.supabase.admin.table("user_profiles")\
-                .select("role")\
-                .eq("id", user_id)\
-                .single()\
-                .execute()
+            result = await self.supabase.table_select(
+                table="user_profiles",
+                columns="role",
+                filters={"id": user_id},
+                use_service_key=True
+            )
             
-            if result.data:
-                return result.data.get("role", "student")
+            if result and len(result) > 0:
+                return result[0].get("role", "student")
         except:
             pass
         

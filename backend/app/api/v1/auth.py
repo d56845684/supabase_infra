@@ -18,25 +18,44 @@ router = APIRouter(prefix="/auth", tags=["認證"])
 async def register(data: RegisterRequest):
     """用戶註冊"""
     try:
-        result = supabase_service.sign_up(
+        result = await supabase_service.sign_up(
             email=data.email,
             password=data.password,
             metadata={"name": data.name, "role": data.role}
         )
         
-        if result.user:
+        user = result.user
+        
+        if user and user.id:
             # 建立 user_profile 記錄
-            supabase_service.admin.table("user_profiles").insert({
-                "id": result.user.id,
-                "role": data.role,
-                f"{data.role}_id": None  # 之後需要關聯實際的教師/學生記錄
-            }).execute()
+            try:
+                profile_data = {
+                    "id": user.id,
+                    "role": data.role
+                }
+                
+                await supabase_service.table_insert(
+                    table="user_profiles",
+                    data=profile_data,
+                    use_service_key=True
+                )
+            except Exception as profile_error:
+                print(f"建立 user_profile 失敗: {profile_error}")
             
             return BaseResponse(message="註冊成功，請檢查您的郵箱進行驗證")
         
-        return BaseResponse(success=False, message="註冊失敗")
+        return BaseResponse(success=False, message="註冊失敗，請稍後再試")
+        
     except Exception as e:
-        return BaseResponse(success=False, message=f"註冊失敗: {str(e)}")
+        error_msg = str(e)
+        if "already registered" in error_msg.lower():
+            return BaseResponse(success=False, message="此郵箱已被註冊")
+        if "invalid email" in error_msg.lower():
+            return BaseResponse(success=False, message="無效的郵箱格式")
+        if "password" in error_msg.lower():
+            return BaseResponse(success=False, message="密碼不符合要求（至少6位）")
+        
+        return BaseResponse(success=False, message=f"註冊失敗: {error_msg}")
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
@@ -147,7 +166,7 @@ async def revoke_session(
 async def request_password_reset(data: PasswordResetRequest):
     """請求重設密碼"""
     try:
-        supabase_service.reset_password_email(
+        await supabase_service.reset_password_email(
             email=data.email,
             redirect_url="https://your-app.com/reset-password"
         )

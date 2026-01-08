@@ -34,6 +34,10 @@ async def lifespan(app: FastAPI):
     # 關閉時
     logger.info("🛑 關閉應用...")
     await redis_service.disconnect()
+    
+    # 關閉 Supabase httpx client
+    from app.services.supabase_service import supabase_service
+    await supabase_service.close()
 
 # 建立 FastAPI 應用
 app = FastAPI(

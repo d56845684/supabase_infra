@@ -31,7 +31,11 @@ async def readiness_check():
     
     # 檢查 Supabase
     try:
-        supabase_service.client.table("courses").select("id").limit(1).execute()
+        result = await supabase_service.table_select(
+            table="courses",
+            columns="id",
+            use_service_key=True
+        )
         checks["supabase"] = True
     except:
         pass
