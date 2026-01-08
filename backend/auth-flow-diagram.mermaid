@@ -1,0 +1,81 @@
+sequenceDiagram
+    autonumber
+    participant C as 前端 (Vue3)
+    participant F as FastAPI
+    participant R as Redis
+    participant S as Supabase Auth
+    participant DB as Supabase DB
+
+    Note over C,DB: 🔐 登入流程
+
+    C->>F: POST /api/v1/auth/login<br/>{email, password}
+    F->>S: sign_in_with_password()
+    S-->>F: {user, session, tokens}
+    F->>DB: 查詢 user_profiles 取得角色
+    DB-->>F: {role: "student"}
+    
+    F->>F: 產生自訂 JWT Token<br/>(Access + Refresh)
+    F->>R: 建立 Session<br/>SET session:{hash} {data}
+    F->>R: 記錄用戶 Sessions<br/>SADD user_sessions:{id} {hash}
+    R-->>F: OK
+    
+    F-->>C: Set-Cookie: access_token (HttpOnly)<br/>Set-Cookie: refresh_token (HttpOnly)<br/>Set-Cookie: session_id (HttpOnly)<br/>{user, tokens}
+
+    Note over C,DB: 🔑 認證請求流程
+
+    C->>F: GET /api/v1/users/profile<br/>Cookie: access_token, session_id
+    F->>R: 檢查 Token 黑名單<br/>EXISTS blacklist:{hash}
+    R-->>F: 0 (不在黑名單)
+    F->>F: 解碼 JWT Token
+    F->>R: 驗證 Session<br/>GET session:{hash}
+    R-->>F: {user_id, role, ...}
+    F->>R: 更新活動時間<br/>SET session:{hash} {updated}
+    F->>DB: 查詢用戶資料
+    DB-->>F: {profile data}
+    F-->>C: {user profile}
+
+    Note over C,DB: 🔄 Token 刷新流程
+
+    C->>F: POST /api/v1/auth/refresh<br/>Cookie: refresh_token, session_id
+    F->>R: 檢查 Refresh Token 黑名單
+    R-->>F: 0 (不在黑名單)
+    F->>F: 驗證 Refresh Token
+    F->>R: 驗證 Session 存在
+    R-->>F: Session 有效
+    
+    F->>F: 產生新的 Token Pair
+    F->>R: 舊 Refresh Token 加入黑名單<br/>SET blacklist:{hash} 1 EX 604800
+    R-->>F: OK
+    
+    F-->>C: Set-Cookie: 新 access_token<br/>Set-Cookie: 新 refresh_token
+
+    Note over C,DB: 🚪 登出流程
+
+    C->>F: POST /api/v1/auth/logout<br/>Cookie: access_token, session_id
+    F->>R: 取得 Session 資料
+    R-->>F: {user_id, ...}
+    F->>R: 刪除 Session<br/>DEL session:{hash}
+    F->>R: 從用戶 Sessions 移除<br/>SREM user_sessions:{id} {hash}
+    F->>R: Access Token 加入黑名單<br/>SET blacklist:{hash} 1 EX 900
+    R-->>F: OK
+    
+    F->>S: sign_out()
+    S-->>F: OK
+    
+    F-->>C: Set-Cookie: 清除所有 Cookies<br/>{success: true}
+
+    Note over C,DB: 🔒 登出所有裝置
+
+    C->>F: POST /api/v1/auth/logout<br/>{logout_all_devices: true}
+    F->>R: 取得所有 Sessions<br/>SMEMBERS user_sessions:{id}
+    R-->>F: [session1, session2, ...]
+    
+    loop 每個 Session
+        F->>R: DEL session:{hash}
+    end
+    
+    F->>R: 刪除用戶 Sessions 集合<br/>DEL user_sessions:{id}
+    F->>R: 清除用戶快取<br/>DEL user_profile:{id}
+    R-->>F: OK
+    
+    F-->>C: {success: true, message: "已登出所有裝置"}
