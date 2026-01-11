@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Request, Response, Depends
+from datetime import date
+from fastapi import APIRouter, Request, Response, Depends, HTTPException, status
 from app.services.auth_service import auth_service
 from app.services.session_service import session_service
 from app.services.supabase_service import supabase_service
@@ -17,22 +18,121 @@ router = APIRouter(prefix="/auth", tags=["認證"])
 @router.post("/register", response_model=BaseResponse)
 async def register(data: RegisterRequest):
     """用戶註冊"""
+    async def cleanup_created_user(
+        user_id: str,
+        entity_table: str | None,
+        entity_id: str | None
+    ) -> None:
+        """註冊失敗時清理已建立的資料"""
+        try:
+            await supabase_service.table_delete(
+                table="user_profiles",
+                filters={"id": user_id},
+                use_service_key=True
+            )
+        except Exception as cleanup_error:
+            print(f"清理 user_profiles 失敗: {cleanup_error}")
+
+        if entity_table and entity_id:
+            try:
+                await supabase_service.table_delete(
+                    table=entity_table,
+                    filters={"id": entity_id},
+                    use_service_key=True
+                )
+            except Exception as cleanup_error:
+                print(f"清理 {entity_table} 失敗: {cleanup_error}")
+
+        try:
+            await supabase_service.admin_delete_user(user_id)
+        except Exception as cleanup_error:
+            print(f"清理 auth.user 失敗: {cleanup_error}")
+
+    created_user_id: str | None = None
+    created_entity_table: str | None = None
+    created_entity_id: str | None = None
+
     try:
+        role = data.role.lower()
+        allowed_roles = {"student", "teacher", "employee", "admin"}
+        if role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="無效的角色"
+            )
+        if role == "employee" and not data.employee_type:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="employee 角色必須提供 employee_type"
+            )
+
         result = await supabase_service.sign_up(
             email=data.email,
             password=data.password,
-            metadata={"name": data.name, "role": data.role}
+            metadata={"name": data.name, "role": role}
         )
         
         user = result.user
         
         if user and user.id:
+            created_user_id = user.id
+            try:
+                if role == "student":
+                    created_entity_table = "students"
+                    entity_data = {
+                        "student_no": f"S{user.id[:8].upper()}",
+                        "name": data.name,
+                        "email": data.email
+                    }
+                elif role == "teacher":
+                    created_entity_table = "teachers"
+                    entity_data = {
+                        "teacher_no": f"T{user.id[:8].upper()}",
+                        "name": data.name,
+                        "email": data.email
+                    }
+                else:
+                    created_entity_table = "employees"
+                    entity_data = {
+                        "employee_no": f"E{user.id[:8].upper()}",
+                        "name": data.name,
+                        "email": data.email,
+                        "employee_type": "admin" if role == "admin" else data.employee_type,
+                        "hire_date": date.today().isoformat()
+                    }
+
+                entity_result = await supabase_service.table_insert(
+                    table=created_entity_table,
+                    data=entity_data,
+                    use_service_key=True
+                )
+                created_entity_id = entity_result.get("id") if entity_result else None
+                if not created_entity_id:
+                    raise Exception("建立對應實體失敗")
+            except Exception as entity_error:
+                print(f"建立 {created_entity_table} 失敗: {entity_error}")
+                await cleanup_created_user(
+                    user.id,
+                    created_entity_table,
+                    created_entity_id
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="註冊失敗，請稍後再試"
+                ) from entity_error
+
             # 建立 user_profile 記錄
             try:
                 profile_data = {
                     "id": user.id,
-                    "role": data.role
+                    "role": role
                 }
+                if role == "student":
+                    profile_data["student_id"] = created_entity_id
+                elif role == "teacher":
+                    profile_data["teacher_id"] = created_entity_id
+                else:
+                    profile_data["employee_id"] = created_entity_id
                 
                 await supabase_service.table_insert(
                     table="user_profiles",
@@ -41,21 +141,53 @@ async def register(data: RegisterRequest):
                 )
             except Exception as profile_error:
                 print(f"建立 user_profile 失敗: {profile_error}")
+                await cleanup_created_user(
+                    user.id,
+                    created_entity_table,
+                    created_entity_id
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="註冊失敗，請稍後再試"
+                ) from profile_error
             
             return BaseResponse(message="註冊成功，請檢查您的郵箱進行驗證")
         
-        return BaseResponse(success=False, message="註冊失敗，請稍後再試")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="註冊失敗，請稍後再試"
+        )
         
+    except HTTPException:
+        raise
     except Exception as e:
+        if created_user_id:
+            await cleanup_created_user(
+                created_user_id,
+                created_entity_table,
+                created_entity_id
+            )
         error_msg = str(e)
         if "already registered" in error_msg.lower():
-            return BaseResponse(success=False, message="此郵箱已被註冊")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="此郵箱已被註冊"
+            ) from e
         if "invalid email" in error_msg.lower():
-            return BaseResponse(success=False, message="無效的郵箱格式")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="無效的郵箱格式"
+            ) from e
         if "password" in error_msg.lower():
-            return BaseResponse(success=False, message="密碼不符合要求（至少6位）")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="密碼不符合要求（至少6位）"
+            ) from e
         
-        return BaseResponse(success=False, message=f"註冊失敗: {error_msg}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"註冊失敗: {error_msg}"
+        ) from e
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
