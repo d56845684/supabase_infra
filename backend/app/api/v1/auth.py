@@ -96,34 +96,15 @@ async def register(data: RegisterRequest):
                     use_service_key=True
                 )
             except Exception as insert_error:
+                await supabase_service.table_delete(
+                    table="user_profiles",
+                    filters={"id": user.id},
+                    use_service_key=True
+                )
                 await supabase_service.admin_delete_user(user.id)
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"註冊失敗: {insert_error}"
-                )
-
-            metadata = {"name": data.name, "role": role}
-            if role == "student":
-                metadata["student_id"] = user.id
-            elif role == "teacher":
-                metadata["teacher_id"] = user.id
-            else:
-                metadata["employee_id"] = user.id
-
-            updated_user = await supabase_service.admin_update_user(
-                user_id=user.id,
-                attributes={"user_metadata": metadata}
-            )
-            if not updated_user:
-                await supabase_service.admin_delete_user(user.id)
-                await supabase_service.table_delete(
-                    table=entity_table,
-                    filters={"id": user.id},
-                    use_service_key=True
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="註冊失敗: 無法更新使用者資料"
                 )
 
             return BaseResponse(message="註冊成功，請檢查您的郵箱進行驗證")
