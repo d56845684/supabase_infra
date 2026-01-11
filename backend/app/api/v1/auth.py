@@ -24,15 +24,7 @@ async def register(data: RegisterRequest):
             return BaseResponse(success=False, message="寫入失敗: 不支援的角色")
 
         missing_fields = []
-        if role == "student":
-            if not data.student_no:
-                missing_fields.append("student_no")
-        elif role == "teacher":
-            if not data.teacher_no:
-                missing_fields.append("teacher_no")
-        elif role == "employee":
-            if not data.employee_no:
-                missing_fields.append("employee_no")
+        if role == "employee":
             if not data.employee_type:
                 missing_fields.append("employee_type")
             if not data.hire_date:
@@ -55,7 +47,6 @@ async def register(data: RegisterRequest):
         if user and user.id:
             if role == "student":
                 entity_payload = {
-                    "student_no": data.student_no,
                     "name": data.name,
                     "email": data.email,
                     "phone": data.phone,
@@ -75,7 +66,6 @@ async def register(data: RegisterRequest):
                 }
             elif role == "teacher":
                 entity_payload = {
-                    "teacher_no": data.teacher_no,
                     "name": data.name,
                     "email": data.email,
                     "phone": data.phone,
@@ -94,7 +84,6 @@ async def register(data: RegisterRequest):
                 }
             else:
                 entity_payload = {
-                    "employee_no": data.employee_no,
                     "employee_type": data.employee_type,
                     "name": data.name,
                     "email": data.email,

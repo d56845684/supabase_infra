@@ -11,9 +11,6 @@ class RegisterRequest(BaseModel):
     password: str
     name: str
     role: str = "student"  # student, teacher, employee
-    student_no: Optional[str] = None
-    teacher_no: Optional[str] = None
-    employee_no: Optional[str] = None
     employee_type: Optional[str] = None
     hire_date: Optional[date] = None
     phone: Optional[str] = None
