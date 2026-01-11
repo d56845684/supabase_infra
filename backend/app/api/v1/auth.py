@@ -44,84 +44,73 @@ async def register(data: RegisterRequest):
                 detail=f"寫入失敗: 缺少必要參數 {', '.join(missing_fields)}"
             )
 
-        result = await supabase_service.sign_up(
-            email=data.email,
-            password=data.password,
-            metadata={"name": data.name, "role": role}
-        )
-        
-        user = result.user
-        
-        if user and user.id:
-            if role == "student":
-                entity_payload = {
-                    "student_no": generate_entity_no("STU"),
-                    "name": data.name,
-                    "email": data.email,
-                    "phone": data.phone,
-                    "address": data.address,
-                    "birth_date": data.birth_date.isoformat() if data.birth_date else None
-                }
-                entity_payload = {k: v for k, v in entity_payload.items() if v is not None}
-                entity = await supabase_service.table_insert(
-                    table="students",
-                    data=entity_payload,
-                    use_service_key=True
-                )
-                profile_data = {
-                    "id": user.id,
-                    "role": role,
-                    "student_id": entity["id"]
-                }
-            elif role == "teacher":
-                entity_payload = {
-                    "teacher_no": generate_entity_no("TCH"),
-                    "name": data.name,
-                    "email": data.email,
-                    "phone": data.phone,
-                    "address": data.address
-                }
-                entity_payload = {k: v for k, v in entity_payload.items() if v is not None}
-                entity = await supabase_service.table_insert(
-                    table="teachers",
-                    data=entity_payload,
-                    use_service_key=True
-                )
-                profile_data = {
-                    "id": user.id,
-                    "role": role,
-                    "teacher_id": entity["id"]
-                }
-            else:
-                entity_payload = {
-                    "employee_no": generate_entity_no("EMP"),
-                    "employee_type": data.employee_type,
-                    "name": data.name,
-                    "email": data.email,
-                    "phone": data.phone,
-                    "address": data.address,
-                    "hire_date": data.hire_date.isoformat() if data.hire_date else None
-                }
-                entity_payload = {k: v for k, v in entity_payload.items() if v is not None}
-                entity = await supabase_service.table_insert(
-                    table="employees",
-                    data=entity_payload,
-                    use_service_key=True
-                )
-                profile_data = {
-                    "id": user.id,
-                    "role": role,
-                    "employee_id": entity["id"]
-                }
+        entity_table = None
+        entity = None
+        if role == "student":
+            entity_table = "students"
+            entity_payload = {
+                "student_no": generate_entity_no("STU"),
+                "name": data.name,
+                "email": data.email,
+                "phone": data.phone,
+                "address": data.address,
+                "birth_date": data.birth_date.isoformat() if data.birth_date else None
+            }
+        elif role == "teacher":
+            entity_table = "teachers"
+            entity_payload = {
+                "teacher_no": generate_entity_no("TCH"),
+                "name": data.name,
+                "email": data.email,
+                "phone": data.phone,
+                "address": data.address
+            }
+        else:
+            entity_table = "employees"
+            entity_payload = {
+                "employee_no": generate_entity_no("EMP"),
+                "employee_type": data.employee_type,
+                "name": data.name,
+                "email": data.email,
+                "phone": data.phone,
+                "address": data.address,
+                "hire_date": data.hire_date.isoformat() if data.hire_date else None
+            }
 
-            await supabase_service.table_insert(
-                table="user_profiles",
-                data=profile_data,
-                use_service_key=True
+        entity_payload = {k: v for k, v in entity_payload.items() if v is not None}
+        entity = await supabase_service.table_insert(
+            table=entity_table,
+            data=entity_payload,
+            use_service_key=True
+        )
+
+        metadata = {"name": data.name, "role": role}
+        if role == "student":
+            metadata["student_id"] = entity["id"]
+        elif role == "teacher":
+            metadata["teacher_id"] = entity["id"]
+        else:
+            metadata["employee_id"] = entity["id"]
+
+        try:
+            result = await supabase_service.sign_up(
+                email=data.email,
+                password=data.password,
+                metadata=metadata
             )
-            
+        except Exception:
+            if entity_table and entity:
+                await supabase_service.table_delete(
+                    table=entity_table,
+                    filters={"id": entity["id"]},
+                    use_service_key=True
+                )
+            raise
+
+        user = result.user
+        if user and user.id:
             return BaseResponse(message="註冊成功，請檢查您的郵箱進行驗證")
-        
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="註冊失敗，請稍後再試"
