@@ -18,29 +18,107 @@ router = APIRouter(prefix="/auth", tags=["認證"])
 async def register(data: RegisterRequest):
     """用戶註冊"""
     try:
+        role = data.role.lower()
+        allowed_roles = {"student", "teacher", "employee"}
+        if role not in allowed_roles:
+            return BaseResponse(success=False, message="寫入失敗: 不支援的角色")
+
+        missing_fields = []
+        if role == "student":
+            if not data.student_no:
+                missing_fields.append("student_no")
+        elif role == "teacher":
+            if not data.teacher_no:
+                missing_fields.append("teacher_no")
+        elif role == "employee":
+            if not data.employee_no:
+                missing_fields.append("employee_no")
+            if not data.employee_type:
+                missing_fields.append("employee_type")
+            if not data.hire_date:
+                missing_fields.append("hire_date")
+
+        if missing_fields:
+            return BaseResponse(
+                success=False,
+                message=f"寫入失敗: 缺少必要參數 {', '.join(missing_fields)}"
+            )
+
         result = await supabase_service.sign_up(
             email=data.email,
             password=data.password,
-            metadata={"name": data.name, "role": data.role}
+            metadata={"name": data.name, "role": role}
         )
         
         user = result.user
         
         if user and user.id:
-            # 建立 user_profile 記錄
-            try:
-                profile_data = {
-                    "id": user.id,
-                    "role": data.role
+            if role == "student":
+                entity_payload = {
+                    "student_no": data.student_no,
+                    "name": data.name,
+                    "email": data.email,
+                    "phone": data.phone,
+                    "address": data.address,
+                    "birth_date": data.birth_date
                 }
-                
-                await supabase_service.table_insert(
-                    table="user_profiles",
-                    data=profile_data,
+                entity_payload = {k: v for k, v in entity_payload.items() if v is not None}
+                entity = await supabase_service.table_insert(
+                    table="students",
+                    data=entity_payload,
                     use_service_key=True
                 )
-            except Exception as profile_error:
-                print(f"建立 user_profile 失敗: {profile_error}")
+                profile_data = {
+                    "id": user.id,
+                    "role": role,
+                    "student_id": entity["id"]
+                }
+            elif role == "teacher":
+                entity_payload = {
+                    "teacher_no": data.teacher_no,
+                    "name": data.name,
+                    "email": data.email,
+                    "phone": data.phone,
+                    "address": data.address
+                }
+                entity_payload = {k: v for k, v in entity_payload.items() if v is not None}
+                entity = await supabase_service.table_insert(
+                    table="teachers",
+                    data=entity_payload,
+                    use_service_key=True
+                )
+                profile_data = {
+                    "id": user.id,
+                    "role": role,
+                    "teacher_id": entity["id"]
+                }
+            else:
+                entity_payload = {
+                    "employee_no": data.employee_no,
+                    "employee_type": data.employee_type,
+                    "name": data.name,
+                    "email": data.email,
+                    "phone": data.phone,
+                    "address": data.address,
+                    "hire_date": data.hire_date
+                }
+                entity_payload = {k: v for k, v in entity_payload.items() if v is not None}
+                entity = await supabase_service.table_insert(
+                    table="employees",
+                    data=entity_payload,
+                    use_service_key=True
+                )
+                profile_data = {
+                    "id": user.id,
+                    "role": role,
+                    "employee_id": entity["id"]
+                }
+
+            await supabase_service.table_insert(
+                table="user_profiles",
+                data=profile_data,
+                use_service_key=True
+            )
             
             return BaseResponse(message="註冊成功，請檢查您的郵箱進行驗證")
         

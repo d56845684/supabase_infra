@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from datetime import date
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -9,7 +10,15 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     name: str
-    role: str = "student"  # student, teacher
+    role: str = "student"  # student, teacher, employee
+    student_no: Optional[str] = None
+    teacher_no: Optional[str] = None
+    employee_no: Optional[str] = None
+    employee_type: Optional[str] = None
+    hire_date: Optional[date] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    birth_date: Optional[date] = None
 
 class TokenPair(BaseModel):
     access_token: str
