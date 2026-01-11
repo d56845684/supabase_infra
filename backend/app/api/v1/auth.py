@@ -54,7 +54,7 @@ async def register(data: RegisterRequest):
                     "email": data.email,
                     "phone": data.phone,
                     "address": data.address,
-                    "birth_date": data.birth_date
+                    "birth_date": data.birth_date.isoformat() if data.birth_date else None
                 }
                 entity_payload = {k: v for k, v in entity_payload.items() if v is not None}
                 entity = await supabase_service.table_insert(
@@ -92,7 +92,7 @@ async def register(data: RegisterRequest):
                     "email": data.email,
                     "phone": data.phone,
                     "address": data.address,
-                    "hire_date": data.hire_date
+                    "hire_date": data.hire_date.isoformat() if data.hire_date else None
                 }
                 entity_payload = {k: v for k, v in entity_payload.items() if v is not None}
                 entity = await supabase_service.table_insert(
