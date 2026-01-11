@@ -1,3 +1,4 @@
+from datetime import date
 from fastapi import APIRouter, Request, Response, Depends, HTTPException, status
 from app.services.auth_service import auth_service
 from app.services.session_service import session_service
@@ -53,7 +54,7 @@ async def register(data: RegisterRequest):
 
     try:
         role = data.role.lower()
-        allowed_roles = {"student", "teacher"}
+        allowed_roles = {"student", "teacher", "employee", "admin"}
         if role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -78,12 +79,21 @@ async def register(data: RegisterRequest):
                         "name": data.name,
                         "email": data.email
                     }
-                else:
+                elif role == "teacher":
                     created_entity_table = "teachers"
                     entity_data = {
                         "teacher_no": f"T{user.id[:8].upper()}",
                         "name": data.name,
                         "email": data.email
+                    }
+                else:
+                    created_entity_table = "employees"
+                    entity_data = {
+                        "employee_no": f"E{user.id[:8].upper()}",
+                        "name": data.name,
+                        "email": data.email,
+                        "employee_type": "admin" if role == "admin" else "full_time",
+                        "hire_date": date.today().isoformat()
                     }
 
                 entity_result = await supabase_service.table_insert(
@@ -114,8 +124,10 @@ async def register(data: RegisterRequest):
                 }
                 if role == "student":
                     profile_data["student_id"] = created_entity_id
-                else:
+                elif role == "teacher":
                     profile_data["teacher_id"] = created_entity_id
+                else:
+                    profile_data["employee_id"] = created_entity_id
                 
                 await supabase_service.table_insert(
                     table="user_profiles",
