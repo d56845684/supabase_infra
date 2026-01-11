@@ -10,6 +10,7 @@ class RegisterRequest(BaseModel):
     password: str
     name: str
     role: str = "student"  # student, teacher
+    employee_type: Optional[str] = None
 
 class TokenPair(BaseModel):
     access_token: str

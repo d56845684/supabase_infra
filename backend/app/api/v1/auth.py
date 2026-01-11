@@ -60,6 +60,11 @@ async def register(data: RegisterRequest):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="無效的角色"
             )
+        if role == "employee" and not data.employee_type:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="employee 角色必須提供 employee_type"
+            )
 
         result = await supabase_service.sign_up(
             email=data.email,
@@ -92,7 +97,7 @@ async def register(data: RegisterRequest):
                         "employee_no": f"E{user.id[:8].upper()}",
                         "name": data.name,
                         "email": data.email,
-                        "employee_type": "admin" if role == "admin" else "full_time",
+                        "employee_type": "admin" if role == "admin" else data.employee_type,
                         "hire_date": date.today().isoformat()
                     }
 
