@@ -3,6 +3,25 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 
+async def cleanup_test_user(
+    mock_supabase_service,
+    user_id: str,
+    entity_table: str,
+    entity_id: str
+) -> None:
+    await mock_supabase_service.table_delete(
+        table="user_profiles",
+        filters={"id": user_id},
+        use_service_key=True
+    )
+    await mock_supabase_service.table_delete(
+        table=entity_table,
+        filters={"id": entity_id},
+        use_service_key=True
+    )
+    await mock_supabase_service.admin_delete_user(user_id)
+
+
 @pytest.mark.asyncio
 async def test_register_employee_requires_employee_type(
     client,
@@ -64,6 +83,14 @@ async def test_register_employee_creates_employee_entity(
     assert second_call.kwargs["data"]["employee_id"] == "employee-entity-id"
     assert second_call.kwargs["use_service_key"] is True
 
+    await cleanup_test_user(
+        mock_supabase_service,
+        user_id="employee-user-id",
+        entity_table="employees",
+        entity_id="employee-entity-id"
+    )
+    assert mock_supabase_service.admin_delete_user.called is True
+
 
 @pytest.mark.asyncio
 async def test_register_teacher_creates_teacher_entity(
@@ -100,6 +127,14 @@ async def test_register_teacher_creates_teacher_entity(
     assert second_call.kwargs["table"] == "user_profiles"
     assert second_call.kwargs["data"]["teacher_id"] == "teacher-entity-id"
 
+    await cleanup_test_user(
+        mock_supabase_service,
+        user_id="teacher-user-id",
+        entity_table="teachers",
+        entity_id="teacher-entity-id"
+    )
+    assert mock_supabase_service.admin_delete_user.called is True
+
 
 @pytest.mark.asyncio
 async def test_register_student_creates_student_entity(
@@ -135,3 +170,11 @@ async def test_register_student_creates_student_entity(
     second_call = mock_supabase_service.table_insert.call_args_list[1]
     assert second_call.kwargs["table"] == "user_profiles"
     assert second_call.kwargs["data"]["student_id"] == "student-entity-id"
+
+    await cleanup_test_user(
+        mock_supabase_service,
+        user_id="student-user-id",
+        entity_table="students",
+        entity_id="student-entity-id"
+    )
+    assert mock_supabase_service.admin_delete_user.called is True
