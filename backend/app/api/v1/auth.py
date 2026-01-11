@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Request, Response, Depends, HTTPException, status
 from app.services.auth_service import auth_service
 from app.services.session_service import session_service
@@ -13,6 +15,9 @@ from app.schemas.user import UserSessionInfo, UserSessionsResponse
 from app.core.security import hash_session_id
 
 router = APIRouter(prefix="/auth", tags=["認證"])
+
+def generate_entity_no(prefix: str) -> str:
+    return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
 @router.post("/register", response_model=BaseResponse)
 async def register(data: RegisterRequest):
@@ -50,6 +55,7 @@ async def register(data: RegisterRequest):
         if user and user.id:
             if role == "student":
                 entity_payload = {
+                    "student_no": generate_entity_no("STU"),
                     "name": data.name,
                     "email": data.email,
                     "phone": data.phone,
@@ -69,6 +75,7 @@ async def register(data: RegisterRequest):
                 }
             elif role == "teacher":
                 entity_payload = {
+                    "teacher_no": generate_entity_no("TCH"),
                     "name": data.name,
                     "email": data.email,
                     "phone": data.phone,
@@ -87,6 +94,7 @@ async def register(data: RegisterRequest):
                 }
             else:
                 entity_payload = {
+                    "employee_no": generate_entity_no("EMP"),
                     "employee_type": data.employee_type,
                     "name": data.name,
                     "email": data.email,
