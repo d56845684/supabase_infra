@@ -99,9 +99,12 @@ ALTER TABLE student_details ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_contracts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_contract_details ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_contract_extra_lessons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_contract_detail_extensions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_contract_teachers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE teacher_contracts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE teacher_contract_details ENABLE ROW LEVEL SECURITY;
+ALTER TABLE teacher_contract_detail_extensions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE teacher_available_slots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE booking_details ENABLE ROW LEVEL SECURITY;
@@ -313,7 +316,44 @@ CREATE POLICY "Staff can manage contract details"
     USING (auth.is_staff());
 
 -- ============================================
--- 15. student_contract_teachers 專屬教師政策
+-- 15. student_contract_extra_lessons 學生合約額外堂數政策
+-- ============================================
+
+CREATE POLICY "Students can view own extra lessons"
+    ON student_contract_extra_lessons FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM student_contracts sc
+            WHERE sc.id = student_contract_extra_lessons.student_contract_id
+            AND sc.student_id = auth.get_student_id()
+        )
+    );
+
+CREATE POLICY "Staff can manage extra lessons"
+    ON student_contract_extra_lessons FOR ALL
+    USING (auth.is_staff());
+
+-- ============================================
+-- 16. student_contract_detail_extensions 學生合約明細延展政策
+-- ============================================
+
+CREATE POLICY "Students can view own contract detail extensions"
+    ON student_contract_detail_extensions FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM student_contract_details scd
+            JOIN student_contracts sc ON sc.id = scd.student_contract_id
+            WHERE scd.id = student_contract_detail_extensions.student_contract_detail_id
+            AND sc.student_id = auth.get_student_id()
+        )
+    );
+
+CREATE POLICY "Staff can manage contract detail extensions"
+    ON student_contract_detail_extensions FOR ALL
+    USING (auth.is_staff());
+
+-- ============================================
+-- 17. student_contract_teachers 專屬教師政策
 -- ============================================
 
 -- 學生可查看自己合約的專屬教師
@@ -338,7 +378,7 @@ CREATE POLICY "Staff can manage contract teachers"
     USING (auth.is_staff());
 
 -- ============================================
--- 16. teacher_contracts 教師合約政策
+-- 18. teacher_contracts 教師合約政策
 -- ============================================
 
 -- 教師只能查看自己的合約
@@ -351,7 +391,7 @@ CREATE POLICY "Staff can manage teacher contracts"
     USING (auth.is_staff());
 
 -- ============================================
--- 17. teacher_contract_details 教師合約明細政策
+-- 19. teacher_contract_details 教師合約明細政策
 -- ============================================
 
 -- 教師可查看自己的合約明細（薪資）
@@ -371,7 +411,26 @@ CREATE POLICY "Staff can manage teacher contract details"
     USING (auth.is_staff());
 
 -- ============================================
--- 18. teacher_available_slots 教師時段政策
+-- 20. teacher_contract_detail_extensions 教師合約明細延展政策
+-- ============================================
+
+CREATE POLICY "Teachers can view own contract detail extensions"
+    ON teacher_contract_detail_extensions FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM teacher_contract_details tcd
+            JOIN teacher_contracts tc ON tc.id = tcd.teacher_contract_id
+            WHERE tcd.id = teacher_contract_detail_extensions.teacher_contract_detail_id
+            AND tc.teacher_id = auth.get_teacher_id()
+        )
+    );
+
+CREATE POLICY "Staff can manage teacher contract detail extensions"
+    ON teacher_contract_detail_extensions FOR ALL
+    USING (auth.is_staff());
+
+-- ============================================
+-- 21. teacher_available_slots 教師時段政策
 -- ============================================
 
 -- 所有已登入用戶可查看可用時段（用於預約）

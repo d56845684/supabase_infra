@@ -275,6 +275,7 @@ CREATE TABLE student_contract_details (
     detail_type VARCHAR(50) NOT NULL, -- 如: payment, amendment, note
     content TEXT,
     amount DECIMAL(10,2),
+    extra_lessons INT DEFAULT 0, -- 額外堂數
     effective_date DATE,
     
     -- 審計欄位
@@ -290,7 +291,53 @@ CREATE TABLE student_contract_details (
 CREATE INDEX idx_student_contract_details_contract ON student_contract_details(student_contract_id) WHERE is_deleted = FALSE;
 
 -- ============================================
--- 13. 學生合約專屬教師關聯表 (student_contract_teachers) - 一對多
+-- 13. 學生合約額外堂數紀錄 (student_contract_extra_lessons)
+-- ============================================
+CREATE TABLE student_contract_extra_lessons (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_contract_id UUID NOT NULL REFERENCES student_contracts(id),
+    student_contract_detail_id UUID REFERENCES student_contract_details(id),
+    extra_lessons INT NOT NULL,
+    reason TEXT,
+    granted_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    
+    -- 審計欄位
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES employees(id),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_by UUID REFERENCES employees(id),
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMPTZ,
+    deleted_by UUID REFERENCES employees(id)
+);
+
+CREATE INDEX idx_student_contract_extra_lessons_contract ON student_contract_extra_lessons(student_contract_id) WHERE is_deleted = FALSE;
+
+-- ============================================
+-- 14. 學生合約明細延展檔 (student_contract_detail_extensions)
+-- ============================================
+CREATE TABLE student_contract_detail_extensions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_contract_detail_id UUID NOT NULL REFERENCES student_contract_details(id),
+    extended_start_date DATE NOT NULL,
+    extended_end_date DATE NOT NULL,
+    reason TEXT,
+    notes TEXT,
+    
+    -- 審計欄位
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES employees(id),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_by UUID REFERENCES employees(id),
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMPTZ,
+    deleted_by UUID REFERENCES employees(id)
+);
+
+CREATE INDEX idx_student_contract_detail_extensions_detail ON student_contract_detail_extensions(student_contract_detail_id) WHERE is_deleted = FALSE;
+
+-- ============================================
+-- 15. 學生合約專屬教師關聯表 (student_contract_teachers) - 一對多
 -- ============================================
 CREATE TABLE student_contract_teachers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -315,7 +362,7 @@ CREATE INDEX idx_contract_teachers_contract ON student_contract_teachers(student
 CREATE INDEX idx_contract_teachers_teacher ON student_contract_teachers(teacher_id) WHERE is_deleted = FALSE;
 
 -- ============================================
--- 14. 教師合約主檔 (teacher_contracts)
+-- 16. 教師合約主檔 (teacher_contracts)
 -- ============================================
 CREATE TABLE teacher_contracts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -341,7 +388,7 @@ CREATE INDEX idx_teacher_contracts_teacher ON teacher_contracts(teacher_id) WHER
 CREATE INDEX idx_teacher_contracts_status ON teacher_contracts(contract_status) WHERE is_deleted = FALSE;
 
 -- ============================================
--- 15. 教師合約明細 - 課程薪資 (teacher_contract_details)
+-- 17. 教師合約明細 - 課程薪資 (teacher_contract_details)
 -- ============================================
 CREATE TABLE teacher_contract_details (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -370,7 +417,30 @@ CREATE INDEX idx_teacher_contract_details_contract ON teacher_contract_details(t
 CREATE INDEX idx_teacher_contract_details_course ON teacher_contract_details(course_id) WHERE is_deleted = FALSE;
 
 -- ============================================
--- 16. 教師授課時段表明細 (teacher_available_slots)
+-- 18. 教師合約明細延展檔 (teacher_contract_detail_extensions)
+-- ============================================
+CREATE TABLE teacher_contract_detail_extensions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    teacher_contract_detail_id UUID NOT NULL REFERENCES teacher_contract_details(id),
+    extended_start_date DATE NOT NULL,
+    extended_end_date DATE NOT NULL,
+    reason TEXT,
+    notes TEXT,
+    
+    -- 審計欄位
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES employees(id),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_by UUID REFERENCES employees(id),
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMPTZ,
+    deleted_by UUID REFERENCES employees(id)
+);
+
+CREATE INDEX idx_teacher_contract_detail_extensions_detail ON teacher_contract_detail_extensions(teacher_contract_detail_id) WHERE is_deleted = FALSE;
+
+-- ============================================
+-- 19. 教師授課時段表明細 (teacher_available_slots)
 -- ============================================
 CREATE TABLE teacher_available_slots (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -391,7 +461,9 @@ CREATE TABLE teacher_available_slots (
     updated_by UUID REFERENCES employees(id),
     is_deleted BOOLEAN DEFAULT FALSE,
     deleted_at TIMESTAMPTZ,
-    deleted_by UUID REFERENCES employees(id)
+    deleted_by UUID REFERENCES employees(id),
+    
+    CONSTRAINT chk_teacher_slot_duration CHECK (end_time = start_time + INTERVAL '30 minutes')
 );
 
 CREATE INDEX idx_teacher_slots_teacher ON teacher_available_slots(teacher_id) WHERE is_deleted = FALSE;
@@ -399,7 +471,7 @@ CREATE INDEX idx_teacher_slots_date ON teacher_available_slots(slot_date) WHERE 
 CREATE INDEX idx_teacher_slots_available ON teacher_available_slots(is_available, is_booked) WHERE is_deleted = FALSE;
 
 -- ============================================
--- 17. 預約主檔 (bookings)
+-- 20. 預約主檔 (bookings)
 -- ============================================
 CREATE TABLE bookings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -426,7 +498,9 @@ CREATE TABLE bookings (
     updated_by UUID REFERENCES employees(id),
     is_deleted BOOLEAN DEFAULT FALSE,
     deleted_at TIMESTAMPTZ,
-    deleted_by UUID REFERENCES employees(id)
+    deleted_by UUID REFERENCES employees(id),
+    
+    CONSTRAINT chk_booking_duration CHECK (end_time = start_time + INTERVAL '30 minutes')
 );
 
 CREATE INDEX idx_bookings_student ON bookings(student_id) WHERE is_deleted = FALSE;
@@ -435,7 +509,7 @@ CREATE INDEX idx_bookings_date ON bookings(booking_date) WHERE is_deleted = FALS
 CREATE INDEX idx_bookings_status ON bookings(booking_status) WHERE is_deleted = FALSE;
 
 -- ============================================
--- 18. 預約明細表 (booking_details)
+-- 21. 預約明細表 (booking_details)
 -- ============================================
 CREATE TABLE booking_details (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -465,7 +539,7 @@ CREATE TABLE booking_details (
 CREATE INDEX idx_booking_details_booking ON booking_details(booking_id) WHERE is_deleted = FALSE;
 
 -- ============================================
--- 19. 代課明細表 (substitute_details)
+-- 22. 代課明細表 (substitute_details)
 -- ============================================
 CREATE TABLE substitute_details (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -496,7 +570,7 @@ ADD CONSTRAINT fk_bookings_substitute
 FOREIGN KEY (substitute_detail_id) REFERENCES substitute_details(id);
 
 -- ============================================
--- 20. 請假明細表 (leave_records)
+-- 23. 請假明細表 (leave_records)
 -- ============================================
 CREATE TABLE leave_records (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -537,7 +611,7 @@ CREATE INDEX idx_leave_status ON leave_records(leave_status) WHERE is_deleted = 
 CREATE INDEX idx_leave_approver ON leave_records(approver_id) WHERE is_deleted = FALSE;
 
 -- ============================================
--- 21. 觸發器: 自動更新 updated_at
+-- 24. 觸發器: 自動更新 updated_at
 -- ============================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -560,9 +634,11 @@ BEGIN
         AND table_name IN (
             'employees', 'courses', 'course_details', 'teachers', 'teacher_details',
             'students', 'student_details', 'student_courses', 'student_contracts',
-            'student_contract_details', 'student_contract_teachers', 'teacher_contracts',
-            'teacher_contract_details', 'teacher_available_slots', 'bookings',
-            'booking_details', 'substitute_details', 'leave_records'
+            'student_contract_details', 'student_contract_extra_lessons',
+            'student_contract_detail_extensions', 'student_contract_teachers',
+            'teacher_contracts', 'teacher_contract_details',
+            'teacher_contract_detail_extensions', 'teacher_available_slots',
+            'bookings', 'booking_details', 'substitute_details', 'leave_records'
         )
     LOOP
         EXECUTE format('
