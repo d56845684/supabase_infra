@@ -1,45 +1,24 @@
--- 建立觸發器函數：註冊時自動建立對應實體
+-- 建立觸發器函數：註冊時從 auth.users metadata 寫入對應實體 ID
 CREATE OR REPLACE FUNCTION create_user_entity()
 RETURNS TRIGGER AS $$
-DECLARE
-    v_entity_id UUID;
 BEGIN
-    -- 根據角色建立對應實體
+    -- 根據角色從 auth.users metadata 帶入對應實體 ID
     CASE NEW.role
         WHEN 'student' THEN
-            INSERT INTO students (student_no, name, email, is_active)
-            VALUES (
-                'S' || UPPER(SUBSTRING(NEW.id::text, 1, 8)),
-                COALESCE((SELECT raw_user_meta_data->>'name' FROM auth.users WHERE id = NEW.id), 'New Student'),
-                (SELECT email FROM auth.users WHERE id = NEW.id),
-                TRUE
-            )
-            RETURNING id INTO v_entity_id;
-            NEW.student_id := v_entity_id;
-            
+            NEW.student_id := NULLIF(
+                (SELECT raw_user_meta_data->>'student_id' FROM auth.users WHERE id = NEW.id),
+                ''
+            )::UUID;
         WHEN 'teacher' THEN
-            INSERT INTO teachers (teacher_no, name, email, is_active)
-            VALUES (
-                'T' || UPPER(SUBSTRING(NEW.id::text, 1, 8)),
-                COALESCE((SELECT raw_user_meta_data->>'name' FROM auth.users WHERE id = NEW.id), 'New Teacher'),
-                (SELECT email FROM auth.users WHERE id = NEW.id),
-                TRUE
-            )
-            RETURNING id INTO v_entity_id;
-            NEW.teacher_id := v_entity_id;
-            
+            NEW.teacher_id := NULLIF(
+                (SELECT raw_user_meta_data->>'teacher_id' FROM auth.users WHERE id = NEW.id),
+                ''
+            )::UUID;
         WHEN 'employee', 'admin' THEN
-            INSERT INTO employees (employee_no, name, email, employee_type, hire_date, is_active)
-            VALUES (
-                'E' || UPPER(SUBSTRING(NEW.id::text, 1, 8)),
-                COALESCE((SELECT raw_user_meta_data->>'name' FROM auth.users WHERE id = NEW.id), 'New Employee'),
-                (SELECT email FROM auth.users WHERE id = NEW.id),
-                NEW.role,
-                CURRENT_DATE,
-                TRUE
-            )
-            RETURNING id INTO v_entity_id;
-            NEW.employee_id := v_entity_id;
+            NEW.employee_id := NULLIF(
+                (SELECT raw_user_meta_data->>'employee_id' FROM auth.users WHERE id = NEW.id),
+                ''
+            )::UUID;
     END CASE;
     
     RETURN NEW;
