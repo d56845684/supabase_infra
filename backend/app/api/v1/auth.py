@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Response, Depends
+from fastapi import APIRouter, Request, Response, Depends, HTTPException, status
 from app.services.auth_service import auth_service
 from app.services.session_service import session_service
 from app.services.supabase_service import supabase_service
@@ -21,7 +21,10 @@ async def register(data: RegisterRequest):
         role = data.role.lower()
         allowed_roles = {"student", "teacher", "employee"}
         if role not in allowed_roles:
-            return BaseResponse(success=False, message="寫入失敗: 不支援的角色")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="寫入失敗: 不支援的角色"
+            )
 
         missing_fields = []
         if role == "employee":
@@ -31,9 +34,9 @@ async def register(data: RegisterRequest):
                 missing_fields.append("hire_date")
 
         if missing_fields:
-            return BaseResponse(
-                success=False,
-                message=f"寫入失敗: 缺少必要參數 {', '.join(missing_fields)}"
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"寫入失敗: 缺少必要參數 {', '.join(missing_fields)}"
             )
 
         result = await supabase_service.sign_up(
@@ -111,18 +114,33 @@ async def register(data: RegisterRequest):
             
             return BaseResponse(message="註冊成功，請檢查您的郵箱進行驗證")
         
-        return BaseResponse(success=False, message="註冊失敗，請稍後再試")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="註冊失敗，請稍後再試"
+        )
         
     except Exception as e:
         error_msg = str(e)
         if "already registered" in error_msg.lower():
-            return BaseResponse(success=False, message="此郵箱已被註冊")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="此郵箱已被註冊"
+            )
         if "invalid email" in error_msg.lower():
-            return BaseResponse(success=False, message="無效的郵箱格式")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="無效的郵箱格式"
+            )
         if "password" in error_msg.lower():
-            return BaseResponse(success=False, message="密碼不符合要求（至少6位）")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="密碼不符合要求（至少6位）"
+            )
         
-        return BaseResponse(success=False, message=f"註冊失敗: {error_msg}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"註冊失敗: {error_msg}"
+        )
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
