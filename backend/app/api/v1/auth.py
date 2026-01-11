@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Response, Depends
+from fastapi import APIRouter, Request, Response, Depends, HTTPException, status
 from app.services.auth_service import auth_service
 from app.services.session_service import session_service
 from app.services.supabase_service import supabase_service
@@ -17,6 +17,24 @@ router = APIRouter(prefix="/auth", tags=["認證"])
 @router.post("/register", response_model=BaseResponse)
 async def register(data: RegisterRequest):
     """用戶註冊"""
+    async def cleanup_created_user(user_id: str) -> None:
+        """註冊失敗時清理已建立的資料"""
+        try:
+            await supabase_service.table_delete(
+                table="user_profiles",
+                filters={"id": user_id},
+                use_service_key=True
+            )
+        except Exception as cleanup_error:
+            print(f"清理 user_profiles 失敗: {cleanup_error}")
+
+        try:
+            await supabase_service.admin_delete_user(user_id)
+        except Exception as cleanup_error:
+            print(f"清理 auth.user 失敗: {cleanup_error}")
+
+    created_user_id: str | None = None
+
     try:
         result = await supabase_service.sign_up(
             email=data.email,
@@ -27,6 +45,7 @@ async def register(data: RegisterRequest):
         user = result.user
         
         if user and user.id:
+            created_user_id = user.id
             # 建立 user_profile 記錄
             try:
                 profile_data = {
@@ -41,21 +60,45 @@ async def register(data: RegisterRequest):
                 )
             except Exception as profile_error:
                 print(f"建立 user_profile 失敗: {profile_error}")
+                await cleanup_created_user(user.id)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="註冊失敗，請稍後再試"
+                ) from profile_error
             
             return BaseResponse(message="註冊成功，請檢查您的郵箱進行驗證")
         
-        return BaseResponse(success=False, message="註冊失敗，請稍後再試")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="註冊失敗，請稍後再試"
+        )
         
+    except HTTPException:
+        raise
     except Exception as e:
+        if created_user_id:
+            await cleanup_created_user(created_user_id)
         error_msg = str(e)
         if "already registered" in error_msg.lower():
-            return BaseResponse(success=False, message="此郵箱已被註冊")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="此郵箱已被註冊"
+            ) from e
         if "invalid email" in error_msg.lower():
-            return BaseResponse(success=False, message="無效的郵箱格式")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="無效的郵箱格式"
+            ) from e
         if "password" in error_msg.lower():
-            return BaseResponse(success=False, message="密碼不符合要求（至少6位）")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="密碼不符合要求（至少6位）"
+            ) from e
         
-        return BaseResponse(success=False, message=f"註冊失敗: {error_msg}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"註冊失敗: {error_msg}"
+        ) from e
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
