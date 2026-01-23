@@ -1,15 +1,25 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, Literal
+
+# 員工類型定義
+EmployeeType = Literal["admin", "full_time", "part_time", "intern"]
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     name: str
-    role: str = "student"  # student, teacher
+    role: str = "student"  # student, teacher, employee
+    employee_type: Optional[EmployeeType] = Field(
+        None,
+        description="員工類型（僅 role 為 employee 時需要）"
+    )
+
 
 class TokenPair(BaseModel):
     access_token: str
@@ -17,12 +27,21 @@ class TokenPair(BaseModel):
     token_type: str = "bearer"
     expires_in: int
 
+
 class UserInfo(BaseModel):
     id: str
     email: str
     role: str
     email_confirmed: bool = False
     created_at: Optional[str] = None
+    employee_type: Optional[str] = Field(
+        None,
+        description="員工類型（若為員工身份）"
+    )
+    permission_level: int = Field(
+        0,
+        description="權限等級"
+    )
 
 class LoginResponse(BaseModel):
     success: bool = True

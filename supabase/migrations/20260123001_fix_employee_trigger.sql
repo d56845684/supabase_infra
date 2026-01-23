@@ -1,4 +1,6 @@
--- 建立觸發器函數：註冊時自動建立對應實體
+-- Fix: Update trigger to use employee_subtype for employee_type
+-- Previously, the trigger used NEW.role ('employee') which is not a valid employee_type enum value
+
 CREATE OR REPLACE FUNCTION create_user_entity()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -16,7 +18,7 @@ BEGIN
             )
             RETURNING id INTO v_entity_id;
             NEW.student_id := v_entity_id;
-            
+
         WHEN 'teacher' THEN
             INSERT INTO teachers (teacher_no, name, email, is_active)
             VALUES (
@@ -27,7 +29,7 @@ BEGIN
             )
             RETURNING id INTO v_entity_id;
             NEW.teacher_id := v_entity_id;
-            
+
         WHEN 'employee', 'admin' THEN
             INSERT INTO employees (employee_no, name, email, employee_type, hire_date, is_active)
             VALUES (
@@ -44,19 +46,7 @@ BEGIN
             RETURNING id INTO v_entity_id;
             NEW.employee_id := v_entity_id;
     END CASE;
-    
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- 建立觸發器
-DROP TRIGGER IF EXISTS trg_create_user_entity ON user_profiles;
-CREATE TRIGGER trg_create_user_entity
-    BEFORE INSERT ON user_profiles
-    FOR EACH ROW
-    WHEN (
-        (NEW.role = 'student' AND NEW.student_id IS NULL) OR
-        (NEW.role = 'teacher' AND NEW.teacher_id IS NULL) OR
-        (NEW.role IN ('employee', 'admin') AND NEW.employee_id IS NULL)
-    )
-    EXECUTE FUNCTION create_user_entity();
