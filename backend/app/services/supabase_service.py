@@ -301,20 +301,27 @@ class SupabaseService:
         use_service_key: bool = False
     ) -> Optional[dict]:
         """更新資料"""
-        url = f"{self.url}/rest/v1/{table}"
-        
-        # 添加過濾條件
-        filter_parts = [f"{k}=eq.{v}" for k, v in filters.items()]
-        url += "?" + "&".join(filter_parts)
-        
+        url = f"{self.url}/rest/v1/{table}?"
+
+        # 添加過濾條件（與 table_select 一致的處理方式）
+        filter_parts = []
+        for key, value in filters.items():
+            # 如果 value 已經包含操作符（如 eq., gt., lt.），直接使用
+            # 否則預設使用 eq.
+            if isinstance(value, str) and any(value.startswith(op) for op in ['eq.', 'gt.', 'lt.', 'gte.', 'lte.', 'neq.', 'like.', 'ilike.', 'is.', 'in.']):
+                filter_parts.append(f"{key}={value}")
+            else:
+                filter_parts.append(f"{key}=eq.{value}")
+        url += "&".join(filter_parts)
+
         headers = self._headers(use_service_key)
         headers["Prefer"] = "return=representation"
-        
+
         response = await self.client.patch(url, headers=headers, json=data)
-        
+
         if response.status_code >= 400:
             return None
-        
+
         result = response.json()
         return result[0] if isinstance(result, list) and result else result
     

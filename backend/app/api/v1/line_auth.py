@@ -103,15 +103,35 @@ async def line_callback(
         # 取得用戶資料
         profile, email = await line_oauth_service.get_user_profile_data(tokens)
 
-        # 檢查是否已有綁定
+        logger.info(f"Line callback - Line UUID: {profile.user_id}, existing_user_id: {existing_user_id}, channel: {channel_type}")
+
+        # 檢查此 Line 帳號是否已綁定（全域檢查，不限頻道）
+        is_bound_to_other, global_binding = await line_binding_service.is_line_id_bound_to_other_user(
+            profile.user_id,
+            existing_user_id or ""  # 如果是 Line Login，傳空字串
+        )
+
+        if is_bound_to_other and existing_user_id:
+            # 用戶嘗試綁定已被其他帳號綁定的 Line
+            logger.warning(
+                f"Line UUID {profile.user_id} 已綁定給用戶 {global_binding.user_id}，"
+                f"用戶 {existing_user_id} 嘗試重複綁定"
+            )
+            return RedirectResponse(
+                url=f"{settings.FRONTEND_URL}/auth/error?error=line_already_bound&description=此Line帳號已綁定其他用戶（{global_binding.line_display_name}），請先解除綁定或使用其他Line帳號"
+            )
+
+        # 檢查此頻道是否已有綁定
         existing_binding = await line_binding_service.get_binding_by_line_id(
             profile.user_id, channel_type
         )
 
-        if existing_binding:
-            # 已綁定，直接登入
+        # 只有當綁定存在、user_id 不為空且狀態為 active 時，才直接登入
+        if existing_binding and existing_binding.user_id and existing_binding.binding_status == "active":
+            # 已綁定此頻道，直接登入原綁定用戶
             user_id = existing_binding.user_id
             is_new_user = False
+            logger.info(f"Line UUID {profile.user_id} 已綁定，登入用戶 {user_id}")
         elif existing_user_id:
             # 綁定到現有帳號（從 state 取得）
             await line_binding_service.create_binding(

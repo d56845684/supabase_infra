@@ -1,3 +1,4 @@
+// src/lib/api/teachers.ts
 import { getSupabaseClient } from '../supabase/client'
 
 export const teachersApi = {
@@ -13,7 +14,7 @@ export const teachersApi = {
         }
 
         const { data, error } = await supabase
-            .from('v_active_teachers')
+            .from('v_active_teachers' as any)
             .select('*')
             .order('created_at', { ascending: false })
         return { data, error }
@@ -39,7 +40,7 @@ export const teachersApi = {
         const supabase = getSupabaseClient()
         const { data, error } = await supabase
             .from('teachers')
-            .update({ teacher_status: status, updated_at: new Date().toISOString() })
+            .update({ teacher_status: status, updated_at: new Date().toISOString() } as any)
             .eq('id', id)
             .select()
             .single()
@@ -48,7 +49,7 @@ export const teachersApi = {
 
     async softDelete(id: string) {
         const supabase = getSupabaseClient()
-        const { data, error } = await supabase.rpc('soft_delete_teacher', {
+        const { data, error } = await supabase.rpc('soft_delete_teacher' as any, {
             teacher_id: id,
         })
         return { data, error }
@@ -56,11 +57,9 @@ export const teachersApi = {
 
     async restore(id: string) {
         const supabase = getSupabaseClient()
-        const { data, error } = await supabase.rpc('restore_teacher', {
+        const { data, error } = await supabase.rpc('restore_teacher' as any, {
             teacher_id: id,
         })
         return { data, error }
     },
 }
-
-// ==========================================

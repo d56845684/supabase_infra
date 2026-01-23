@@ -315,13 +315,14 @@ class LineOAuthService:
             email: 用戶 email
 
         Returns:
-            用戶資料，如果不存在則返回 None
+            用戶資料 dict，如果不存在則返回 None
         """
         try:
             users = await supabase_service.admin_list_users()
             for user in users:
-                if user.get("email") == email:
-                    return user
+                # user is a SupabaseUser object, use attribute access
+                if user.email == email:
+                    return {"id": user.id, "email": user.email}
             return None
         except Exception:
             return None

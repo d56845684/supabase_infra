@@ -15,7 +15,7 @@ from app.services.line_oauth_service import LineProfile
 class LineBinding:
     """Line 綁定資料"""
     id: str
-    user_id: str
+    user_id: Optional[str]
     line_user_id: str
     line_display_name: Optional[str]
     line_picture_url: Optional[str]
@@ -47,7 +47,13 @@ class LineBindingService:
         channel_type: ChannelType,
     ) -> LineBinding:
         """
-        建立 Line 綁定
+        建立或更新 Line 綁定
+
+        邏輯：
+        1. 檢查此 Line UUID 是否已有記錄
+        2. 如果有記錄且已綁定其他用戶（user_id 不為空且不同），拒絕綁定
+        3. 如果有記錄但 user_id 為空（已解除綁定），更新 user_id
+        4. 如果沒有記錄，建立新記錄
 
         Args:
             user_id: 用戶 ID
@@ -60,26 +66,43 @@ class LineBindingService:
         Raises:
             Exception: 如果綁定失敗
         """
-        # 檢查是否已經綁定其他帳號（在同一頻道）
-        existing = await self.get_binding_by_line_id(profile.user_id, channel_type)
-        if existing and existing.user_id != user_id:
-            raise Exception("此 Line 帳號已綁定其他用戶")
+        # 檢查是否已有此 Line UUID 的記錄（不論是否有綁定用戶）
+        existing_line_record = await self._get_record_by_line_id(profile.user_id, channel_type)
 
-        # 檢查用戶是否已有綁定（在同一頻道）
-        user_binding = await self.get_binding_by_user(user_id, channel_type)
-        if user_binding:
-            # 更新現有綁定
-            return await self.update_binding(
-                user_id=user_id,
-                channel_type=channel_type,
-                line_user_id=profile.user_id,
-                line_display_name=profile.display_name,
-                line_picture_url=profile.picture_url,
-                line_email=profile.email,
-                binding_status="active"
+        if existing_line_record:
+            # 有記錄，檢查綁定狀態和用戶
+            existing_user_id = existing_line_record.get("user_id")
+            existing_status = existing_line_record.get("binding_status")
+
+            # 只有當狀態為 active 且綁定給其他用戶時才拒絕
+            if existing_status == "active" and existing_user_id and existing_user_id != user_id:
+                raise Exception("此 Line 帳號已綁定其他用戶")
+
+            # 更新現有記錄：
+            # - 狀態為 unlinked：重新綁定（更新 user_id 和狀態）
+            # - 狀態為 active 且同一用戶：更新資料
+            # - user_id 為空：綁定到新用戶
+            result = await supabase_service.table_update(
+                table="line_user_bindings",
+                data={
+                    "user_id": user_id,
+                    "line_display_name": profile.display_name,
+                    "line_picture_url": profile.picture_url,
+                    "line_email": profile.email,
+                    "binding_status": "active",
+                    "bound_at": datetime.now(timezone.utc).isoformat(),
+                    "unbound_at": None,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                },
+                filters={
+                    "line_user_id": profile.user_id,
+                    "channel_type": channel_type
+                },
+                use_service_key=True
             )
+            return self._to_binding(result)
 
-        # 建立新綁定
+        # 沒有記錄，建立新綁定
         data = {
             "user_id": user_id,
             "line_user_id": profile.user_id,
@@ -88,6 +111,7 @@ class LineBindingService:
             "line_email": profile.email,
             "binding_status": "active",
             "channel_type": channel_type,
+            "bound_at": datetime.now(timezone.utc).isoformat(),
         }
 
         result = await supabase_service.table_insert(
@@ -97,6 +121,38 @@ class LineBindingService:
         )
 
         return self._to_binding(result)
+
+    async def _get_record_by_line_id(
+        self,
+        line_user_id: str,
+        channel_type: ChannelType
+    ) -> Optional[dict]:
+        """
+        透過 Line User ID 取得記錄（不論綁定狀態）
+
+        Args:
+            line_user_id: Line 用戶 ID
+            channel_type: 頻道類型
+
+        Returns:
+            原始記錄 dict，如果不存在則返回 None
+        """
+        try:
+            result = await supabase_service.table_select(
+                table="line_user_bindings",
+                select="*",
+                filters={
+                    "line_user_id": f"eq.{line_user_id}",
+                    "channel_type": f"eq.{channel_type}"
+                },
+                use_service_key=True
+            )
+
+            if result and len(result) > 0:
+                return result[0]
+            return None
+        except Exception:
+            return None
 
     async def get_binding_by_user(
         self,
@@ -131,21 +187,30 @@ class LineBindingService:
         except Exception:
             return None
 
-    async def get_all_bindings_by_user(self, user_id: str) -> List[LineBinding]:
+    async def get_all_bindings_by_user(
+        self,
+        user_id: str,
+        include_unlinked: bool = False
+    ) -> List[LineBinding]:
         """
         取得用戶所有頻道的綁定
 
         Args:
             user_id: 用戶 ID
+            include_unlinked: 是否包含已解除的綁定
 
         Returns:
             綁定列表
         """
         try:
+            filters = {"user_id": f"eq.{user_id}"}
+            if not include_unlinked:
+                filters["binding_status"] = "eq.active"
+
             result = await supabase_service.table_select(
                 table="line_user_bindings",
                 select="*",
-                filters={"user_id": f"eq.{user_id}"},
+                filters=filters,
                 use_service_key=True
             )
 
@@ -161,7 +226,7 @@ class LineBindingService:
         channel_type: ChannelType
     ) -> Optional[LineBinding]:
         """
-        透過 Line User ID 取得綁定
+        透過 Line User ID 取得綁定（指定頻道）
 
         Args:
             line_user_id: Line 用戶 ID
@@ -186,6 +251,72 @@ class LineBindingService:
             return None
         except Exception:
             return None
+
+    async def get_any_binding_by_line_id(
+        self,
+        line_user_id: str
+    ) -> Optional[LineBinding]:
+        """
+        透過 Line User ID 取得任何綁定（不限頻道）
+
+        用於檢查 Line 帳號是否已被任何用戶綁定
+
+        Args:
+            line_user_id: Line 用戶 ID
+
+        Returns:
+            綁定資料，如果不存在則返回 None
+        """
+        try:
+            result = await supabase_service.table_select(
+                table="line_user_bindings",
+                select="*",
+                filters={
+                    "line_user_id": f"eq.{line_user_id}",
+                    "binding_status": "eq.active"
+                },
+                use_service_key=True
+            )
+
+            if result and len(result) > 0:
+                return self._to_binding(result[0])
+            return None
+        except Exception:
+            return None
+
+    async def is_line_id_bound_to_other_user(
+        self,
+        line_user_id: str,
+        current_user_id: str
+    ) -> tuple[bool, Optional[LineBinding]]:
+        """
+        檢查 Line 帳號是否已綁定給其他用戶
+
+        Args:
+            line_user_id: Line 用戶 ID
+            current_user_id: 當前用戶 ID
+
+        Returns:
+            (是否已綁定給其他用戶, 現有綁定資料)
+        """
+        try:
+            result = await supabase_service.table_select(
+                table="line_user_bindings",
+                select="*",
+                filters={
+                    "line_user_id": f"eq.{line_user_id}",
+                    "binding_status": "eq.active"
+                },
+                use_service_key=True
+            )
+
+            if result and len(result) > 0:
+                binding = self._to_binding(result[0])
+                if binding.user_id != current_user_id:
+                    return True, binding
+            return False, None
+        except Exception:
+            return False, None
 
     async def update_binding(
         self,
@@ -231,6 +362,9 @@ class LineBindingService:
         """
         解除 Line 綁定
 
+        將 user_id 設為 NULL，保留 Line UUID 記錄。
+        下次綁定時可重新關聯用戶。
+
         Args:
             user_id: 用戶 ID
             channel_type: 頻道類型
@@ -239,21 +373,26 @@ class LineBindingService:
             True 如果成功
         """
         try:
-            await supabase_service.table_update(
+            # 注意：table_update 會自動加上 eq. 前綴
+            # 設定 user_id 為 None (NULL)，保留 Line UUID 記錄
+            result = await supabase_service.table_update(
                 table="line_user_bindings",
                 data={
+                    "user_id": None,  # 清除 user_id，保留 Line UUID 記錄
                     "binding_status": "unlinked",
                     "unbound_at": datetime.now(timezone.utc).isoformat(),
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 },
                 filters={
-                    "user_id": f"eq.{user_id}",
-                    "channel_type": f"eq.{channel_type}"
+                    "user_id": user_id,
+                    "channel_type": channel_type
                 },
                 use_service_key=True
             )
-            return True
-        except Exception:
+            return result is not None
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Unbind failed: {e}")
             return False
 
     async def update_notification_preferences(

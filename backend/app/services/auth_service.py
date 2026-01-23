@@ -241,9 +241,9 @@ class AuthService:
         # 取得用戶資料
         user_role = await self._get_user_role(user_id)
 
-        # 取得用戶 email
+        # 取得用戶 email (user_data is a SupabaseUser object)
         user_data = await self.supabase.admin_get_user(user_id)
-        user_email = user_data.get("email", "") if user_data else ""
+        user_email = user_data.email if user_data else ""
 
         # 建立 Session
         session_id, session_data = await self.session.create_session(
