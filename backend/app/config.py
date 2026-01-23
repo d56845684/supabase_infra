@@ -53,22 +53,23 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # Line 學生頻道
-    LINE_STUDENT_CHANNEL_ID: str = ""
-    LINE_STUDENT_CHANNEL_SECRET: str = ""
-    LINE_STUDENT_CALLBACK_URL: str = ""
+    # ============================================
+    # Line Login（登入認證）- 所有角色共用同一個 Channel
+    # ============================================
+    LINE_LOGIN_CHANNEL_ID: str = ""
+    LINE_LOGIN_CHANNEL_SECRET: str = ""
+    LINE_LOGIN_CALLBACK_URL: str = "http://localhost:8001/api/v1/auth/line/callback"
+
+    # ============================================
+    # Line Messaging（發送通知）- 每個角色使用不同的 Channel
+    # ============================================
+    # 學生頻道
     LINE_STUDENT_MESSAGING_TOKEN: str = ""
 
-    # Line 老師頻道
-    LINE_TEACHER_CHANNEL_ID: str = ""
-    LINE_TEACHER_CHANNEL_SECRET: str = ""
-    LINE_TEACHER_CALLBACK_URL: str = ""
+    # 老師頻道
     LINE_TEACHER_MESSAGING_TOKEN: str = ""
 
-    # Line 員工頻道
-    LINE_EMPLOYEE_CHANNEL_ID: str = ""
-    LINE_EMPLOYEE_CHANNEL_SECRET: str = ""
-    LINE_EMPLOYEE_CALLBACK_URL: str = ""
+    # 員工頻道
     LINE_EMPLOYEE_MESSAGING_TOKEN: str = ""
 
     # Frontend URL (for OAuth redirects)
@@ -78,31 +79,34 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.APP_ENV == "production"
 
+    @property
+    def line_login_config(self) -> LineChannelConfig:
+        """取得 Line Login Channel 設定（所有角色共用）"""
+        return LineChannelConfig(
+            channel_id=self.LINE_LOGIN_CHANNEL_ID,
+            channel_secret=self.LINE_LOGIN_CHANNEL_SECRET,
+            callback_url=self.LINE_LOGIN_CALLBACK_URL,
+            messaging_token="",  # Login channel 不用於發送訊息
+        )
+
+    def get_messaging_token(self, channel_type: ChannelType) -> str:
+        """根據角色取得對應的 Messaging Token"""
+        tokens = {
+            "student": self.LINE_STUDENT_MESSAGING_TOKEN,
+            "teacher": self.LINE_TEACHER_MESSAGING_TOKEN,
+            "employee": self.LINE_EMPLOYEE_MESSAGING_TOKEN,
+        }
+        return tokens.get(channel_type, "")
+
     def get_line_channel(self, channel_type: ChannelType) -> LineChannelConfig:
-        """根據角色取得對應的 Line Channel 設定"""
-        if channel_type == "student":
-            return LineChannelConfig(
-                channel_id=self.LINE_STUDENT_CHANNEL_ID,
-                channel_secret=self.LINE_STUDENT_CHANNEL_SECRET,
-                callback_url=self.LINE_STUDENT_CALLBACK_URL,
-                messaging_token=self.LINE_STUDENT_MESSAGING_TOKEN,
-            )
-        elif channel_type == "teacher":
-            return LineChannelConfig(
-                channel_id=self.LINE_TEACHER_CHANNEL_ID,
-                channel_secret=self.LINE_TEACHER_CHANNEL_SECRET,
-                callback_url=self.LINE_TEACHER_CALLBACK_URL,
-                messaging_token=self.LINE_TEACHER_MESSAGING_TOKEN,
-            )
-        elif channel_type == "employee":
-            return LineChannelConfig(
-                channel_id=self.LINE_EMPLOYEE_CHANNEL_ID,
-                channel_secret=self.LINE_EMPLOYEE_CHANNEL_SECRET,
-                callback_url=self.LINE_EMPLOYEE_CALLBACK_URL,
-                messaging_token=self.LINE_EMPLOYEE_MESSAGING_TOKEN,
-            )
-        else:
-            raise ValueError(f"Unknown channel type: {channel_type}")
+        """根據角色取得對應的 Line Channel 設定（向後相容）"""
+        # Login 使用共用的 channel，Messaging 使用各自的 token
+        return LineChannelConfig(
+            channel_id=self.LINE_LOGIN_CHANNEL_ID,
+            channel_secret=self.LINE_LOGIN_CHANNEL_SECRET,
+            callback_url=self.LINE_LOGIN_CALLBACK_URL,
+            messaging_token=self.get_messaging_token(channel_type),
+        )
 
     def get_line_channel_by_role(self, role: str) -> LineChannelConfig:
         """根據用戶角色取得對應的 Line Channel 設定"""
@@ -116,21 +120,22 @@ class Settings(BaseSettings):
         return self.get_line_channel(channel_type)
 
     @property
+    def line_login_enabled(self) -> bool:
+        """檢查 Line Login 是否已設定"""
+        return self.line_login_config.is_configured
+
+    @property
     def line_enabled(self) -> bool:
-        """檢查是否有任何 Line 頻道已設定"""
-        return any([
-            self.get_line_channel("student").is_configured,
-            self.get_line_channel("teacher").is_configured,
-            self.get_line_channel("employee").is_configured,
-        ])
+        """檢查是否有 Line 功能已設定（向後相容）"""
+        return self.line_login_enabled
 
     @property
     def line_messaging_enabled(self) -> bool:
         """檢查是否有任何 Line Messaging API 已設定"""
         return any([
-            self.get_line_channel("student").messaging_enabled,
-            self.get_line_channel("teacher").messaging_enabled,
-            self.get_line_channel("employee").messaging_enabled,
+            bool(self.LINE_STUDENT_MESSAGING_TOKEN),
+            bool(self.LINE_TEACHER_MESSAGING_TOKEN),
+            bool(self.LINE_EMPLOYEE_MESSAGING_TOKEN),
         ])
 
     class Config:

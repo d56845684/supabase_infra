@@ -34,15 +34,17 @@ def get_channel_type_from_role(role: str) -> ChannelType:
 
 @router.get("/login", response_model=LineLoginUrlResponse)
 async def line_login(
-    channel: ChannelType = Query("student", description="頻道類型")
+    channel: ChannelType = Query("student", description="角色頻道類型（用於綁定後的角色識別）")
 ):
     """
     取得 Line 登入 URL
 
-    導向此 URL 開始 Line OAuth 流程
+    導向此 URL 開始 Line OAuth 流程。
+    所有角色共用同一個 Line Login Channel，但 channel 參數會記錄在 state 中，
+    用於識別用戶綁定的角色類型。
     """
-    if not line_oauth_service.is_channel_configured(channel):
-        raise HTTPException(status_code=503, detail=f"Line {channel} 頻道登入功能未啟用")
+    if not line_oauth_service.is_configured:
+        raise HTTPException(status_code=503, detail="Line 登入功能未啟用")
 
     state = await line_oauth_service.generate_state(channel)
     url = line_oauth_service.get_authorization_url(state, channel)
@@ -50,27 +52,38 @@ async def line_login(
     return LineLoginUrlResponse(url=url, state=state, channel_type=channel)
 
 
-@router.get("/callback/{channel}")
+@router.get("/callback")
 async def line_callback(
-    channel: ChannelType,
     request: Request,
     response: Response,
-    code: str,
-    state: str,
+    code: str = None,
+    state: str = None,
     error: str = None,
     error_description: str = None,
 ):
     """
     Line OAuth 回調
 
-    處理 Line 授權後的回調，自動登入或建立帳號
+    處理 Line 授權後的回調，自動登入或建立帳號。
+    角色類型（channel_type）從 state 中取得。
     """
     from fastapi.responses import RedirectResponse
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # 記錄收到的參數
+    logger.info(f"Line callback received - code: {code[:10] if code else 'None'}..., state: {state[:10] if state else 'None'}..., error: {error}")
 
     # 處理錯誤
     if error:
         return RedirectResponse(
-            url=f"{settings.FRONTEND_URL}/auth/error?error={error}&description={error_description}"
+            url=f"{settings.FRONTEND_URL}/auth/error?error={error}&description={error_description or ''}"
+        )
+
+    # 檢查必要參數
+    if not code or not state:
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/auth/error?error=missing_params&description=code_or_state_missing"
         )
 
     # 驗證 state
@@ -80,8 +93,8 @@ async def line_callback(
             url=f"{settings.FRONTEND_URL}/auth/error?error=invalid_state"
         )
 
-    # 使用 state 中的 channel_type（如果有）
-    channel_type = state_channel or channel
+    # 使用 state 中的 channel_type
+    channel_type = state_channel or "student"
 
     try:
         # 交換 tokens
@@ -145,8 +158,11 @@ async def line_callback(
         return RedirectResponse(url=redirect_url, status_code=302)
 
     except Exception as e:
+        import urllib.parse
+        error_msg = urllib.parse.quote(str(e))
+        logger.error(f"Line auth failed: {e}")
         return RedirectResponse(
-            url=f"{settings.FRONTEND_URL}/auth/error?error=line_auth_failed&description={str(e)}"
+            url=f"{settings.FRONTEND_URL}/auth/error?error=line_auth_failed&description={error_msg}"
         )
 
 

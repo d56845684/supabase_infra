@@ -244,19 +244,24 @@ class SupabaseService:
     async def table_select(
         self,
         table: str,
-        columns: str = "*",
+        select: str = "*",
         filters: dict = None,
         use_service_key: bool = False
     ) -> list[dict]:
         """查詢表格"""
-        url = f"{self.url}/rest/v1/{table}?select={columns}"
+        url = f"{self.url}/rest/v1/{table}?select={select}"
         
         headers = self._headers(use_service_key)
         
         # 添加過濾條件
         if filters:
             for key, value in filters.items():
-                url += f"&{key}=eq.{value}"
+                # 如果 value 已經包含操作符（如 eq., gt., lt.），直接使用
+                # 否則預設使用 eq.
+                if isinstance(value, str) and any(value.startswith(op) for op in ['eq.', 'gt.', 'lt.', 'gte.', 'lte.', 'neq.', 'like.', 'ilike.', 'is.', 'in.']):
+                    url += f"&{key}={value}"
+                else:
+                    url += f"&{key}=eq.{value}"
         
         response = await self.client.get(url, headers=headers)
         

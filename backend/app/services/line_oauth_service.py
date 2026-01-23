@@ -50,18 +50,22 @@ class LineOAuthService:
     # State 快取過期時間（秒）
     STATE_TTL = 600  # 10 分鐘
 
+    def get_login_channel(self) -> LineChannelConfig:
+        """取得 Line Login Channel 設定（所有角色共用）"""
+        return settings.line_login_config
+
     def get_channel(self, channel_type: ChannelType) -> LineChannelConfig:
-        """取得指定類型的頻道設定"""
+        """取得指定類型的頻道設定（向後相容）"""
         return settings.get_line_channel(channel_type)
 
-    def is_channel_configured(self, channel_type: ChannelType) -> bool:
-        """檢查指定頻道是否已設定"""
-        return self.get_channel(channel_type).is_configured
+    def is_channel_configured(self, channel_type: ChannelType = None) -> bool:
+        """檢查 Line Login 是否已設定"""
+        return self.get_login_channel().is_configured
 
     @property
     def is_configured(self) -> bool:
-        """檢查是否有任何 Line OAuth 頻道已設定"""
-        return settings.line_enabled
+        """檢查 Line Login 是否已設定"""
+        return settings.line_login_enabled
 
     async def generate_state(
         self,
@@ -87,7 +91,7 @@ class LineOAuthService:
         await redis_service.set_json(
             f"line_oauth_state:{state}",
             state_data,
-            ex=self.STATE_TTL
+            expire_seconds=self.STATE_TTL
         )
 
         return state
@@ -114,7 +118,7 @@ class LineOAuthService:
     def get_authorization_url(
         self,
         state: str,
-        channel_type: ChannelType,
+        channel_type: ChannelType = None,
         scope: str = "profile openid email"
     ) -> str:
         """
@@ -122,13 +126,13 @@ class LineOAuthService:
 
         Args:
             state: OAuth state
-            channel_type: 頻道類型
+            channel_type: 頻道類型（保留用於 state，但 OAuth 使用共用 channel）
             scope: 請求的權限範圍
 
         Returns:
             完整的授權 URL
         """
-        channel = self.get_channel(channel_type)
+        channel = self.get_login_channel()
         params = {
             "response_type": "code",
             "client_id": channel.channel_id,
@@ -142,14 +146,14 @@ class LineOAuthService:
     async def exchange_code_for_tokens(
         self,
         code: str,
-        channel_type: ChannelType
+        channel_type: ChannelType = None
     ) -> LineTokens:
         """
         用授權碼交換 Tokens
 
         Args:
             code: 授權碼
-            channel_type: 頻道類型
+            channel_type: 頻道類型（保留向後相容，但使用共用 login channel）
 
         Returns:
             LineTokens 物件
@@ -157,7 +161,7 @@ class LineOAuthService:
         Raises:
             Exception: 如果交換失敗
         """
-        channel = self.get_channel(channel_type)
+        channel = self.get_login_channel()
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -277,19 +281,19 @@ class LineOAuthService:
     async def revoke_token(
         self,
         access_token: str,
-        channel_type: ChannelType
+        channel_type: ChannelType = None
     ) -> bool:
         """
         撤銷 access token
 
         Args:
             access_token: Line access token
-            channel_type: 頻道類型
+            channel_type: 頻道類型（保留向後相容）
 
         Returns:
             True 如果成功
         """
-        channel = self.get_channel(channel_type)
+        channel = self.get_login_channel()
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
