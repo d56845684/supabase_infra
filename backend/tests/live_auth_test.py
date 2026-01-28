@@ -63,6 +63,15 @@ class TestContext:
     cookies: dict = field(default_factory=dict)
 
 
+@dataclass
+class CreatedAccount:
+    """記錄創建的帳號資訊"""
+    role: str
+    email: str
+    password: str
+    user_id: Optional[str] = None
+
+
 class LiveAuthTester:
     def __init__(self, backend_url: str, supabase_url: str, service_role_key: str, roles: list[str]):
         self.backend_url = backend_url.rstrip("/")
@@ -71,6 +80,7 @@ class LiveAuthTester:
         self.roles = roles
         self.results: list[TestResult] = []
         self.created_user_ids: list[str] = []
+        self.created_accounts: list[CreatedAccount] = []
 
         # httpx client config
         self.client_kwargs = {
@@ -133,9 +143,15 @@ class LiveAuthTester:
             role_results.append(result)
             self.results.append(result)
 
-        # 記錄建立的用戶 ID
+        # 記錄建立的用戶 ID 和帳號資訊
         if ctx.user_id:
             self.created_user_ids.append(ctx.user_id)
+            self.created_accounts.append(CreatedAccount(
+                role=ctx.test_role,
+                email=ctx.test_email,
+                password=ctx.test_password,
+                user_id=ctx.user_id
+            ))
 
         passed = sum(1 for r in role_results if r.passed)
         failed = sum(1 for r in role_results if not r.passed)
@@ -305,6 +321,28 @@ class LiveAuthTester:
         async with httpx.AsyncClient(**self.client_kwargs) as client:
             resp = await client.get(f"{self.backend_url}/api/v1/auth/me")
             assert resp.status_code == 401, f"Expected 401 after logout, got {resp.status_code}"
+
+    def print_created_accounts(self):
+        """輸出創建的帳號資訊"""
+        if not self.created_accounts:
+            return
+
+        print(f"\n{'='*60}")
+        print("📝 Created Test Accounts (not cleaned up)")
+        print(f"{'='*60}\n")
+
+        for acc in self.created_accounts:
+            print(f"  [{acc.role.upper()}]")
+            print(f"    Email:    {acc.email}")
+            print(f"    Password: {acc.password}")
+            if acc.user_id:
+                print(f"    User ID:  {acc.user_id}")
+            print()
+
+        print(f"{'='*60}")
+        print("⚠️  These accounts were NOT cleaned up.")
+        print("    Run with --cleanup-only to remove them later.")
+        print(f"{'='*60}\n")
 
     # ========== 清理功能 ==========
 
@@ -483,7 +521,9 @@ async def main():
 
     success = await tester.run_all_tests()
 
-    if not args.no_cleanup:
+    if args.no_cleanup:
+        tester.print_created_accounts()
+    else:
         await tester.cleanup_test_data()
 
     sys.exit(0 if success else 1)

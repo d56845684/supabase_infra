@@ -294,7 +294,7 @@ class AuthService:
         try:
             result = await self.supabase.table_select(
                 table="user_profiles",
-                columns="role",
+                select="role",
                 filters={"id": user_id},
                 use_service_key=True
             )
