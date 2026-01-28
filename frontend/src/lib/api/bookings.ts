@@ -1,6 +1,4 @@
-// ==========================================
 // src/lib/api/bookings.ts
-// ==========================================
 import { getSupabaseClient } from '../supabase/client'
 
 export const bookingsApi = {
@@ -20,7 +18,7 @@ export const bookingsApi = {
         }
 
         const { data, error } = await supabase
-            .from('v_active_bookings')
+            .from('v_active_bookings' as any)
             .select('*')
             .order('scheduled_start', { ascending: false })
         return { data, error }
@@ -37,7 +35,7 @@ export const bookingsApi = {
         const supabase = getSupabaseClient()
         const { data, error } = await supabase
             .from('bookings')
-            .insert(booking)
+            .insert(booking as any)
             .select()
             .single()
         return { data, error }
@@ -47,7 +45,7 @@ export const bookingsApi = {
         const supabase = getSupabaseClient()
         const { data, error } = await supabase
             .from('bookings')
-            .update({ status, updated_at: new Date().toISOString() })
+            .update({ status, updated_at: new Date().toISOString() } as any)
             .eq('id', id)
             .select()
             .single()
@@ -62,7 +60,7 @@ export const bookingsApi = {
             .update({
                 deleted_at: new Date().toISOString(),
                 deleted_by: user?.id
-            })
+            } as any)
             .eq('id', id)
             .select()
             .single()
@@ -73,12 +71,10 @@ export const bookingsApi = {
         const supabase = getSupabaseClient()
         const { data, error } = await supabase
             .from('bookings')
-            .update({ deleted_at: null, deleted_by: null })
+            .update({ deleted_at: null, deleted_by: null } as any)
             .eq('id', id)
             .select()
             .single()
         return { data, error }
     },
 }
-
-// ==========================================

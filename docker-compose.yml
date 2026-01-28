@@ -51,16 +51,21 @@ services:
   frontend:
     container_name: teaching-platform-frontend
     build:
-      context: ./frontend-vue
+      context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL}
-        VITE_SUPABASE_ANON_KEY: ${ANON_KEY}
+        NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+        NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8001}
     depends_on:
       kong:
         condition: service_started
+      backend:
+        condition: service_started
     ports:
-      - ${FRONTEND_PORT:-4173}:80
+      - ${FRONTEND_PORT:-4173}:3000
+    environment:
+      - NODE_ENV=production
 
   studio:
     container_name: supabase-studio

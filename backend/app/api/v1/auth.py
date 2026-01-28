@@ -17,15 +17,26 @@ router = APIRouter(prefix="/auth", tags=["認證"])
 @router.post("/register", response_model=BaseResponse)
 async def register(data: RegisterRequest):
     """用戶註冊"""
+    # 驗證員工類型
+    if data.role == "employee" and not data.employee_type:
+        return BaseResponse(
+            success=False,
+            message="員工註冊必須指定員工類型"
+        )
+
     try:
+        metadata = {"name": data.name, "role": data.role}
+        if data.employee_type:
+            metadata["employee_type"] = data.employee_type
+
         result = await supabase_service.sign_up(
             email=data.email,
             password=data.password,
-            metadata={"name": data.name, "role": data.role}
+            metadata=metadata
         )
-        
+
         user = result.user
-        
+
         if user and user.id:
             # 建立 user_profile 記錄
             try:
@@ -33,7 +44,10 @@ async def register(data: RegisterRequest):
                     "id": user.id,
                     "role": data.role
                 }
-                
+                # 如果是員工，新增員工子類型
+                if data.role == "employee" and data.employee_type:
+                    profile_data["employee_subtype"] = data.employee_type
+
                 await supabase_service.table_insert(
                     table="user_profiles",
                     data=profile_data,
@@ -41,11 +55,11 @@ async def register(data: RegisterRequest):
                 )
             except Exception as profile_error:
                 print(f"建立 user_profile 失敗: {profile_error}")
-            
+
             return BaseResponse(message="註冊成功，請檢查您的郵箱進行驗證")
-        
+
         return BaseResponse(success=False, message="註冊失敗，請稍後再試")
-        
+
     except Exception as e:
         error_msg = str(e)
         if "already registered" in error_msg.lower():
@@ -54,7 +68,7 @@ async def register(data: RegisterRequest):
             return BaseResponse(success=False, message="無效的郵箱格式")
         if "password" in error_msg.lower():
             return BaseResponse(success=False, message="密碼不符合要求（至少6位）")
-        
+
         return BaseResponse(success=False, message=f"註冊失敗: {error_msg}")
 
 @router.post("/login", response_model=LoginResponse)
@@ -116,7 +130,9 @@ async def get_current_user_info(
             id=current_user.user_id,
             email=current_user.email,
             role=current_user.role,
-            email_confirmed=True
+            email_confirmed=True,
+            employee_type=current_user.employee_type,
+            permission_level=current_user.permission_level
         )
     )
 

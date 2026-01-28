@@ -1,14 +1,16 @@
-// ==========================================
-// src/lib/hooks/useAuth.ts
-// ==========================================
+// useAuth hook - uses backend API for authentication
 import { useState, useEffect, useCallback } from 'react'
-import { getSupabaseClient } from '../supabase/client'
 import { authApi } from '../api/auth'
-import type { User } from '@supabase/supabase-js'
+
+interface User {
+    id: string
+    email: string
+    role?: string
+}
 
 interface UserProfile {
     id: string
-    role: 'admin' | 'teacher' | 'student'
+    role: 'admin' | 'teacher' | 'student' | 'employee'
     full_name: string
     email: string
     phone?: string
@@ -20,44 +22,48 @@ export function useAuth() {
     const [profile, setProfile] = useState<UserProfile | null>(null)
     const [loading, setLoading] = useState(true)
 
-    const fetchProfile = useCallback(async (userId: string) => {
-        const { data } = await authApi.getUserProfile(userId)
-        if (data) {
-            setProfile(data as UserProfile)
+    const fetchCurrentUser = useCallback(async () => {
+        try {
+            const { user: currentUser, error } = await authApi.getCurrentUser()
+            if (error || !currentUser) {
+                setUser(null)
+                setProfile(null)
+                return
+            }
+
+            setUser(currentUser)
+
+            // Fetch profile
+            const { data: profileData } = await authApi.getUserProfile(currentUser.id)
+            if (profileData) {
+                setProfile(profileData)
+            }
+        } catch (err) {
+            setUser(null)
+            setProfile(null)
         }
     }, [])
 
     useEffect(() => {
-        const supabase = getSupabaseClient()
-
-        // 初始檢查
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            setUser(user)
-            if (user) {
-                fetchProfile(user.id)
-            }
+        // Check if user is logged in on mount
+        fetchCurrentUser().finally(() => {
             setLoading(false)
         })
-
-        // 監聽 auth 變化
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                setUser(session?.user ?? null)
-                if (session?.user) {
-                    await fetchProfile(session.user.id)
-                } else {
-                    setProfile(null)
-                }
-                setLoading(false)
-            }
-        )
-
-        return () => subscription.unsubscribe()
-    }, [fetchProfile])
+    }, [fetchCurrentUser])
 
     const signIn = async (email: string, password: string) => {
         setLoading(true)
         const result = await authApi.signIn(email, password)
+
+        if (result.data?.user) {
+            setUser(result.data.user as User)
+            // Fetch profile after login
+            const { data: profileData } = await authApi.getUserProfile(result.data.user.id)
+            if (profileData) {
+                setProfile(profileData)
+            }
+        }
+
         setLoading(false)
         return result
     }
@@ -77,10 +83,10 @@ export function useAuth() {
         loading,
         signIn,
         signOut,
+        refreshUser: fetchCurrentUser,
         isAdmin: profile?.role === 'admin',
         isTeacher: profile?.role === 'teacher',
         isStudent: profile?.role === 'student',
+        isEmployee: profile?.role === 'employee',
     }
 }
-
-// ==========================================

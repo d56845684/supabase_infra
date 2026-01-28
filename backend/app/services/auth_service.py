@@ -221,6 +221,74 @@ class AuthService:
             expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
     
+    async def login_by_user_id(
+        self,
+        user_id: str,
+        request: Request,
+        response: Response
+    ) -> Tuple[UserInfo, TokenPair]:
+        """
+        透過 user_id 直接登入（用於 OAuth 流程）
+
+        Args:
+            user_id: 用戶 ID
+            request: FastAPI Request
+            response: FastAPI Response
+
+        Returns:
+            (UserInfo, TokenPair)
+        """
+        # 取得用戶資料
+        user_role = await self._get_user_role(user_id)
+
+        # 取得用戶 email (user_data is a SupabaseUser object)
+        user_data = await self.supabase.admin_get_user(user_id)
+        user_email = user_data.email if user_data else ""
+
+        # 建立 Session
+        session_id, session_data = await self.session.create_session(
+            user_id=user_id,
+            user_role=user_role,
+            user_agent=request.headers.get("user-agent"),
+            ip_address=request.client.host if request.client else None,
+            extra_data={"email": user_email, "login_method": "line"}
+        )
+
+        # 建立 JWT Token
+        token_data = {
+            "sub": user_id,
+            "email": user_email,
+            "role": user_role,
+            "session_id": session_data.session_id
+        }
+
+        access_token = create_token(token_data, TokenType.ACCESS)
+        refresh_token = create_token(
+            {"sub": user_id, "session_id": session_data.session_id},
+            TokenType.REFRESH
+        )
+
+        # 設定 HttpOnly Cookies
+        set_auth_cookies(response, access_token, refresh_token, session_id)
+
+        # 快取用戶資料
+        user_info = UserInfo(
+            id=user_id,
+            email=user_email,
+            role=user_role,
+            email_confirmed=True,
+        )
+        await self._cache_user_profile(user_id, user_info.model_dump())
+
+        token_pair = TokenPair(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        )
+
+        return user_info, token_pair
+
     async def _get_user_role(self, user_id: str) -> str:
         """從資料庫取得用戶角色"""
         try:

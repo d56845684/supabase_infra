@@ -1,6 +1,4 @@
-// ==========================================
 // src/lib/api/contracts.ts
-// ==========================================
 import { getSupabaseClient } from '../supabase/client'
 
 export const contractsApi = {
@@ -55,11 +53,9 @@ export const contractsApi = {
         const supabase = getSupabaseClient()
         const { data, error } = await supabase
             .from('student_contracts')
-            .insert(contract)
+            .insert(contract as any)
             .select()
             .single()
         return { data, error }
     },
 }
-
-// ==========================================

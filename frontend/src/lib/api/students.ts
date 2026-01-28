@@ -1,18 +1,10 @@
-// ==========================================
 // src/lib/api/students.ts
-// ==========================================
 import { getSupabaseClient } from '../supabase/client'
 
 export const studentsApi = {
     async getAll(includeDeleted = false) {
         const supabase = getSupabaseClient()
-        let query = supabase
-            .from('v_active_students')
-            .select('*')
-            .order('created_at', { ascending: false })
 
-        // v_active_students 已經排除 deleted_at
-        // 如果要包含已刪除的，需要查原表
         if (includeDeleted) {
             const { data, error } = await supabase
                 .from('students')
@@ -24,7 +16,10 @@ export const studentsApi = {
             return { data, error }
         }
 
-        const { data, error } = await query
+        const { data, error } = await supabase
+            .from('v_active_students' as any)
+            .select('*')
+            .order('created_at', { ascending: false })
         return { data, error }
     },
 
@@ -47,7 +42,7 @@ export const studentsApi = {
         const supabase = getSupabaseClient()
         const { data, error } = await supabase
             .from('students')
-            .update({ student_status: status, updated_at: new Date().toISOString() })
+            .update({ student_status: status, updated_at: new Date().toISOString() } as any)
             .eq('id', id)
             .select()
             .single()
@@ -56,7 +51,7 @@ export const studentsApi = {
 
     async softDelete(id: string) {
         const supabase = getSupabaseClient()
-        const { data, error } = await supabase.rpc('soft_delete_student', {
+        const { data, error } = await supabase.rpc('soft_delete_student' as any, {
             student_id: id,
         })
         return { data, error }
@@ -64,11 +59,9 @@ export const studentsApi = {
 
     async restore(id: string) {
         const supabase = getSupabaseClient()
-        const { data, error } = await supabase.rpc('restore_student', {
+        const { data, error } = await supabase.rpc('restore_student' as any, {
             student_id: id,
         })
         return { data, error }
     },
 }
-
-// ==========================================
