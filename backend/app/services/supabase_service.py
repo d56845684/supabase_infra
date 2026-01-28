@@ -270,6 +270,43 @@ class SupabaseService:
         
         return response.json()
     
+    async def table_select_with_pagination(
+        self,
+        table: str,
+        select: str = "*",
+        filters: dict = None,
+        order_by: str = None,
+        limit: int = 20,
+        offset: int = 0,
+        use_service_key: bool = False
+    ) -> list[dict]:
+        """查詢表格（支援分頁和排序）"""
+        url = f"{self.url}/rest/v1/{table}?select={select}"
+
+        headers = self._headers(use_service_key)
+
+        # 添加過濾條件
+        if filters:
+            for key, value in filters.items():
+                if isinstance(value, str) and any(value.startswith(op) for op in ['eq.', 'gt.', 'lt.', 'gte.', 'lte.', 'neq.', 'like.', 'ilike.', 'is.', 'in.']):
+                    url += f"&{key}={value}"
+                else:
+                    url += f"&{key}=eq.{value}"
+
+        # 添加排序
+        if order_by:
+            url += f"&order={order_by}"
+
+        # 添加分頁
+        url += f"&limit={limit}&offset={offset}"
+
+        response = await self.client.get(url, headers=headers)
+
+        if response.status_code >= 400:
+            return []
+
+        return response.json()
+
     async def table_insert(
         self,
         table: str,
