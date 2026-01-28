@@ -1,0 +1,11 @@
+# Dockerfile for migration runner
+FROM postgres:15-alpine
+
+# 安裝必要工具
+RUN apk add --no-cache bash
+
+# 複製遷移腳本
+COPY run-migrations.sh /usr/local/bin/run-migrations.sh
+RUN chmod +x /usr/local/bin/run-migrations.sh
+
+ENTRYPOINT ["/usr/local/bin/run-migrations.sh"]
